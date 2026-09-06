@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V23</title>
+<title>SOCCER MATCH V24</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -354,13 +354,13 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
  .pitch-name{font-size:10.5px!important;max-width:78px!important;padding:3px 5px!important}
 }
 
-/* V23 · 선수정보 비차단 점진 로딩 + 강제 타임아웃 + 부분 결과 즉시 표시 */
+/* V24 · 선수정보 병합 null-safety 수정 + 비차단 점진 로딩 유지 */
 </style>
 </head>
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V23</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V24</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN + 보조 공개소스</div>
 </header>
 <section class="card">
@@ -1245,18 +1245,18 @@ function mergePlayerSeasonRow(year,sources){
  const get=n=>sources[n]?.get?.(year),clean=n=>{const r=get(n);return r?sanitizePlayerSeasonRow({...r,year}):null},rows={squad:clean('squad'),career:clean('career'),page:clean('page'),html:clean('html'),core:clean('core'),site:clean('site'),fotmob:clean('fotmob'),sofa:clean('sofa'),tm:clean('tm'),cache:clean('cache')};
  const result={year,apps:null,starts:null,goals:null,assists:null},src={};
  // ESPN Squad는 APP/SUB/G/A를 한 행에서 함께 제공하므로 가장 신뢰도가 높다. SUB로 실제 선발 횟수를 계산한다.
- for(const k of ['apps','starts','goals','assists'])if(rows.squad?.[k]!==null){result[k]=rows.squad[k];src[k]='squad'}
+ for(const k of ['apps','starts','goals','assists'])if(rows.squad?.[k]!=null){result[k]=rows.squad[k];src[k]='squad'}
  // ESPN 선수 Career 페이지는 시즌별 STRT/G/A를 직접 제공한다.
- for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.career?.[k]!==null){result[k]=rows.career[k];src[k]='career'}
+ for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.career?.[k]!=null){result[k]=rows.career[k];src[k]='career'}
  // 기존 ESPN API 계열은 보조만 사용한다.
- for(const n of ['page','html','core','site'])for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows[n]?.[k]!==null){result[k]=rows[n][k];src[k]=n}
+ for(const n of ['page','html','core','site'])for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows[n]?.[k]!=null){result[k]=rows[n][k];src[k]=n}
  // FotMob의 서버 렌더링 선수 페이지는 현재 시즌 Matches/Started/Goals/Assists를 안정적으로 제공한다.
- for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.fotmob?.[k]!==null){result[k]=rows.fotmob[k];src[k]='fotmob'}
+ for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.fotmob?.[k]!=null){result[k]=rows.fotmob[k];src[k]='fotmob'}
  // Sofascore는 그 뒤의 보조 경로로 사용한다.
- for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.sofa?.[k]!==null){result[k]=rows.sofa[k];src[k]='sofa'}
+ for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.sofa?.[k]!=null){result[k]=rows.sofa[k];src[k]='sofa'}
  // Transfermarkt/캐시는 최후 보조.
- if(result.apps===null&&result.starts===null&&rows.tm?.apps!==null){result.apps=rows.tm.apps;src.apps='tm'}for(const k of ['goals','assists'])if(result[k]===null&&rows.tm?.[k]!==null){result[k]=rows.tm[k];src[k]='tm'}
- for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.cache?.[k]!==null){result[k]=rows.cache[k];src[k]='cache'}
+ if(result.apps===null&&result.starts===null&&rows.tm?.apps!=null){result.apps=rows.tm.apps;src.apps='tm'}for(const k of ['goals','assists'])if(result[k]===null&&rows.tm?.[k]!=null){result[k]=rows.tm[k];src[k]='tm'}
+ for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&rows.cache?.[k]!=null){result[k]=rows.cache[k];src[k]='cache'}
  if(result.apps!==null&&result.starts!==null&&result.starts>result.apps){const conf=n=>({squad:10,career:9,page:7,html:6,core:5,site:4,fotmob:4,sofa:3,tm:2,cache:1}[n]||0);if(conf(src.starts)>conf(src.apps))result.apps=null;else result.starts=null}
  return result
 }
