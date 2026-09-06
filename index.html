@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V32</title>
+<title>SOCCER MATCH V33</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -361,7 +361,7 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V32</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V33</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN + 보조 공개소스</div>
 </header>
 <section class="card">
@@ -1037,7 +1037,7 @@ async function athleteGamelogCount(league,id,season){try{const d=await fetchJson
 function playerSeasonStoreKey(league,id){return`playerSeasonV10:${league}:${id}`}
 function readPlayerSeasonCache(league,id){try{const raw=localStorage.getItem(playerSeasonStoreKey(league,id));if(!raw)return null;const x=JSON.parse(raw);return Date.now()-(x.savedAt||0)<43200000?x:null}catch(e){return null}}
 function savePlayerSeasonCache(league,id,rows,profile){try{localStorage.setItem(playerSeasonStoreKey(league,id),JSON.stringify({savedAt:Date.now(),rows,profile:{name:profile?.displayName||'',age:profile?.age||'',foot:profile?.preferredFoot||'',img:profile?.headshot?.href||profile?.headshot||''}}))}catch(e){}}
-function marketCacheKey(name,team){return`mv:v6:${roleKey(name)}:${roleKey(team)}`}
+function marketCacheKey(name,team){return`mv:v7:${roleKey(name)}:${roleKey(team)}`}
 async function fetchExternalJson(url){
  const tries=[url,`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
  const attempt=async u=>{try{const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),4500),r=await fetch(u,{headers:{Accept:'application/json'},signal:ctrl.signal});clearTimeout(tm);if(!r.ok)return null;const t=await r.text();return JSON.parse(t)}catch(e){return null}};
@@ -1127,15 +1127,25 @@ function flashscoreMarketFromText(txt){
  return null
 }
 function flashscorePlayerUrlFromSearch(txt,name,team){
- const raw=String(txt||'').replace(/\\u002F/g,'/').replace(/&amp;/g,'&');
+ const raw=String(txt||'').replace(/\\u002F/g,'/').replace(/&amp;/g,'&').replace(/\\\\\//g,'/');
  const urls=[];
- const re=/https?:\/\/(?:www\.)?flashscore\.(?:com|info|in|ca|co\.ke|com\.au)\/player\/[a-z0-9-]+\/[A-Za-z0-9]+\/?/gi;
+ const re=/https?:\/\/(?:www\.)?(?:flashscore(?:usa)?\.[a-z.]+)\/(?:en\/)?(?:player|jugador|oyuncu)\/[a-z0-9-]+\/[A-Za-z0-9]+\/?/gi;
  let m;while((m=re.exec(raw)))urls.push(m[0]);
  for(const enc of (raw.match(/https?%3A%2F%2F(?:www\.)?flashscore[^\s&"'<>]+/gi)||[])){try{const u=decodeURIComponent(enc),mm=u.match(re);if(mm?.[0])urls.push(mm[0])}catch(e){}}
  if(!urls.length)return null;
  const nk=roleKey(name),tk=roleKey(team);
- const score=u=>{let v=0;const slug=(u.match(/\/player\/([^/]+)/i)?.[1]||'').replace(/-/g,'');if(nk&&slug&&(slug.includes(nk)||nk.includes(slug)))v+=6;const at=raw.indexOf(u),around=at>=0?raw.slice(Math.max(0,at-220),at+u.length+260):'';if(tk&&roleKey(around).includes(tk))v+=3;return v};
- return [...new Set(urls)].sort((a,b)=>score(b)-score(a))[0]||null
+ const score=u=>{let v=0;const slug=(u.match(/\/(?:player|jugador|oyuncu)\/([^/]+)/i)?.[1]||'').replace(/-/g,'');if(nk&&slug&&(slug.includes(nk)||nk.includes(slug)))v+=8;const at=raw.indexOf(u),around=at>=0?raw.slice(Math.max(0,at-360),at+u.length+520):'';if(tk&&roleKey(around).includes(tk))v+=4;if(/flashscore\.com\//i.test(u))v+=1;return v};
+ return[...new Set(urls)].sort((a,b)=>score(b)-score(a))[0]||null
+}
+function flashscoreMarketFromSearchText(txt,name,team){
+ const raw=String(txt||'');if(!raw)return null;const needles=[String(name||'').trim(),String(team||'').trim()].filter(Boolean),windows=[];
+ const low=raw.toLowerCase();for(const q of needles){const needle=q.toLowerCase();let pos=0,count=0;while((pos=low.indexOf(needle,pos))>=0&&count<6){windows.push(raw.slice(Math.max(0,pos-800),pos+1700));pos+=Math.max(1,needle.length);count++}}
+ windows.push(raw.slice(0,9000));for(const w of windows){const v=flashscoreMarketFromText(w);if(v)return v}return null
+}
+async function flashscoreSearchTexts(name,team){
+ const queries=[`site:flashscore.com/player/ "${name}" "${team||''}"`,`"${name}" "${team||''}" "Market value" Flashscore`,`"${name}" "${team||''}" Flashscore player`],urls=[];
+ for(const q of queries){const e=encodeURIComponent(q);urls.push(`https://www.bing.com/search?q=${e}&format=rss`,`https://www.bing.com/search?q=${e}`,`https://html.duckduckgo.com/html/?q=${e}`,`https://lite.duckduckgo.com/lite/?q=${e}`,`https://www.google.com/search?q=${e}`)}
+ const out=[];for(let i=0;i<urls.length;i+=5){const batch=await Promise.all(urls.slice(i,i+5).map(u=>fetchExternalTextPage(u,5200).catch(()=>null)));for(const t of batch)if(t)out.push(t);if(out.some(t=>flashscorePlayerUrlFromSearch(t,name,team))||out.some(t=>flashscoreMarketFromSearchText(t,name,team)))break}return out
 }
 
 function flashscoreLeagueHints(league){
@@ -1180,18 +1190,15 @@ function flashscoreCareerRowsFromText(txt,league){
  return[...merged.values()].sort((a,b)=>b.year-a.year)
 }
 async function flashscorePlayerProfile(name,team){
- if(!name)return null;const key=`flashscoreProfileV32:${roleKey(name)}:${roleKey(team)}`;
+ if(!name)return null;const key=`flashscoreProfileV33:${roleKey(name)}:${roleKey(team)}`;
  if(state.playerStatsCache.has(key)){const v=state.playerStatsCache.get(key);return v&&typeof v.then==='function'?await v:v}
  const task=(async()=>{
-  const q=`site:flashscore.com/player/ "${name}" "${team||''}" Flashscore`;
-  const searchUrls=[`https://www.google.com/search?q=${encodeURIComponent(q)}`,`https://www.bing.com/search?q=${encodeURIComponent(q)}`];
-  const texts=await Promise.all(searchUrls.map(u=>fetchExternalTextPage(u,6000).catch(()=>null)));
-  let playerUrl=null;for(const t of texts){playerUrl=flashscorePlayerUrlFromSearch(t,name,team);if(playerUrl)break}
-  if(!playerUrl)return null;
-  playerUrl=playerUrl.replace(/^https?:\/\/(?:www\.)?flashscore\.(?:info|in|ca|co\.ke|com\.au)/i,'https://www.flashscore.com');
-  const txt=await fetchExternalTextPage(playerUrl,7500);if(!txt)return null;
-  const plain=roleKey(txt),nk=roleKey(name);if(nk&&!plain.includes(nk))return null;
-  return{url:playerUrl,text:txt,market:flashscoreMarketFromText(txt)}
+  const texts=await flashscoreSearchTexts(name,team);let playerUrl=null,searchMarket=null;
+  for(const t of texts){if(!searchMarket)searchMarket=flashscoreMarketFromSearchText(t,name,team);if(!playerUrl)playerUrl=flashscorePlayerUrlFromSearch(t,name,team);if(playerUrl&&searchMarket)break}
+  if(!playerUrl)return searchMarket?{url:null,text:'',market:searchMarket,fromSearch:true}:null;
+  const txt=await fetchExternalTextPage(playerUrl,8200);if(!txt)return searchMarket?{url:playerUrl,text:'',market:searchMarket,fromSearch:true}:null;
+  const plain=roleKey(txt),nk=roleKey(name);if(nk&&!plain.includes(nk))return searchMarket?{url:playerUrl,text:'',market:searchMarket,fromSearch:true}:null;
+  return{url:playerUrl,text:txt,market:flashscoreMarketFromText(txt)||searchMarket,fromSearch:false}
  })();
  state.playerStatsCache.set(key,task);const out=await task;if(out)state.playerStatsCache.set(key,out);else state.playerStatsCache.delete(key);return out
 }
@@ -1203,7 +1210,7 @@ async function flashscorePlayerSeasonRows(d,p,years,side){
 async function flashscoreMarketValue(name,team){
  const prof=await flashscorePlayerProfile(name,team);if(!prof)return null;
  const value=prof.market;if(!marketValueUsable(value))return null;
- return{value,source:'Flashscore',flashscoreUrl:prof.url}
+ return{value,source:prof.fromSearch?'Flashscore 검색':'Flashscore',flashscoreUrl:prof.url||null}
 }
 async function transfermarktMarketValue(name,team){
  const direct=`https://transfermarkt-api.fly.dev/players/search/${encodeURIComponent(name)}?page_number=1`,data=await fetchExternalJson(direct),results=data?.results||data?.players||data?.data?.results||data?.data?.players||[],tk=roleKey(team);
@@ -1491,7 +1498,7 @@ async function openPlayerModal(p,side,d){
   if(cached?.rows?.length)render(true);
   if(baseProfile?.img){const av=document.querySelector('#playerCardBody .player-avatar');if(av)av.innerHTML=`<img src="${esc(baseProfile.img)}" alt="">`}
   const setStatus=t=>{if(seq!==playerLoadSeq)return;const st=document.getElementById('playerSourceStatus');if(st)st.textContent=t};
-  let marketPriority=0;const setMarket=(v,src='')=>{if(seq!==playerLoadSeq)return;const rank={Flashscore:40,Transfermarkt:30,FotMob:20,Sofascore:10}[src]||5;if(rank<marketPriority)return;marketPriority=rank;const el=document.getElementById('playerMarket'),se=document.getElementById('playerMarketSource');if(el)el.textContent=v;if(se&&src)se.textContent=src};
+  let marketPriority=0;const setMarket=(v,src='')=>{if(seq!==playerLoadSeq)return;const rank={'Flashscore':40,'Flashscore 검색':39,Transfermarkt:30,FotMob:20,Sofascore:10}[src]||5;if(rank<marketPriority)return;marketPriority=rank;const el=document.getElementById('playerMarket'),se=document.getElementById('playerMarketSource');if(el)el.textContent=v;if(se&&src)se.textContent=src};
   let completed=0,hadAny=compose().some(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null));
   const applyRows=(name,rows)=>{for(const r of (rows||[])){const rr=sanitizePlayerSeasonRow(r);if(rr?.year){sources[name].set(rr.year,rr);if(Number(rr.year)===Number(d.seasonYear))updatePlayerRoleFromStats(d,side,p,rr)}};if(rows?.length)hadAny=true;completed++;render(true);setStatus(`선수 기록 확인 중 · ${completed}/7 소스 완료`)};
   // 프로필은 통계 완료 여부와 무관하게 짧게만 조회한다.
