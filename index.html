@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V6</title>
+<title>SOCCER MATCH V8</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -104,7 +104,7 @@ button,input,select{font:inherit}.app{max-width:920px;margin:0 auto;padding:12px
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V6</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 데이터 · 경기/통계/H2H/피치라인업/결장/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V8</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 데이터 · 경기/통계/H2H/피치라인업/결장/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN 중심 · 무료</div>
 </header>
 <section class="card">
@@ -398,6 +398,36 @@ async function hydrateAllH2H(d){
 }
 
 function summaryTeams(summary,ev){const c=summary?.header?.competitions?.[0]||ev?.competitions?.[0]||{},cs=c.competitors||[];return{comp:c,home:teamData(cs.find(x=>x.homeAway==='home')||cs[0]),away:teamData(cs.find(x=>x.homeAway==='away')||cs[1])}}
+
+function weatherCode(c){const m={0:'맑음',1:'대체로 맑음',2:'부분 흐림',3:'흐림',45:'안개',48:'서리 안개',51:'약한 이슬비',53:'이슬비',55:'강한 이슬비',61:'약한 비',63:'비',65:'강한 비',71:'약한 눈',73:'눈',75:'강한 눈',80:'소나기',81:'소나기',82:'강한 소나기',95:'뇌우'};return m[c]||`코드 ${c}`}
+function kstDay(iso){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(iso))}
+async function geocodeVenue(venue,homeName=''){const a=venue?.address||{},qs=[[venue?.fullName,a.city,a.state,a.country].filter(Boolean).join(' '),[a.city,a.state,a.country].filter(Boolean).join(' '),[venue?.fullName,homeName].filter(Boolean).join(' '),venue?.fullName,a.city].filter(Boolean);for(const q of [...new Set(qs)]){try{const geo=await fetchJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=3&language=ko&format=json`),g=geo?.results?.[0];if(g)return g}catch(e){}}return null}
+async function loadWeather(summary,ev){
+ const sc=summary?.header?.competitions?.[0]||{},ec=ev?.competitions?.[0]||{},w=sc?.weather||ec?.weather||summary?.gameInfo?.weather;
+ const venue=(sc?.venue?.fullName||sc?.venue?.address?.city)?sc.venue:(ec?.venue||{}),homeComp=(sc?.competitors?.length?sc:ec),homeTeam=(homeComp?.competitors||[]).find(x=>x.homeAway==='home')?.team||{},homeName=homeTeam?.displayName||homeTeam?.shortDisplayName||'',homeLocation=homeTeam?.location||'';
+ if(w&&(w.displayValue||w.conditionId||w.temperature)){return{ok:true,source:'ESPN',condition:w.displayValue||w.condition||'-',temp:w.temperature?.displayValue||w.temperature||'-',rain:w.precipitation||'-',rainLabel:'강수',wind:w.wind?.displayValue||w.wind||'-',place:venue?.fullName||''}}
+ if(!venue?.fullName&&!venue?.address?.city&&!homeLocation)return{ok:false,message:'경기장 위치 정보가 제공되지 않았습니다.'};
+ try{
+  let g=await geocodeVenue(venue,homeName);
+  if(!g&&homeLocation)g=await geocodeVenue({fullName:homeLocation,address:{city:homeLocation}},homeName);
+  if(!g)return{ok:false,message:'경기장 좌표를 찾지 못했습니다.'};
+  const day=kstDay(ev.date),today=todayKST(),isPast=day<today,target=new Date(ev.date).getTime();
+  let url,source,rainLabel;
+  if(isPast){
+   url=`https://archive-api.open-meteo.com/v1/archive?latitude=${g.latitude}&longitude=${g.longitude}&start_date=${day}&end_date=${day}&hourly=temperature_2m,precipitation,rain,weather_code,wind_speed_10m&timezone=Asia%2FSeoul`;
+   source='Open-Meteo 과거날씨';rainLabel='강수량';
+  }else{
+   url=`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m&timezone=Asia%2FSeoul&start_date=${day}&end_date=${day}`;
+   source='Open-Meteo 예보';rainLabel='강수확률';
+  }
+  const fc=await fetchJson(url),h=fc?.hourly;
+  if(!h?.time?.length)return{ok:false,message:isPast?'해당 날짜의 과거 날씨 데이터가 없습니다.':'해당 날짜의 예보 데이터가 없습니다.'};
+  const i=h.time.reduce((best,t,idx)=>Math.abs(new Date(t+'+09:00').getTime()-target)<Math.abs(new Date(h.time[best]+'+09:00').getTime()-target)?idx:best,0);
+  const rain=isPast?(h.precipitation?.[i]!==undefined?`${h.precipitation[i]} mm`:'-'):(h.precipitation_probability?.[i]!==undefined?`${h.precipitation_probability[i]}%`:'-');
+  return{ok:true,source,condition:weatherCode(h.weather_code?.[i]),temp:h.temperature_2m?.[i]!==undefined?`${h.temperature_2m[i]}°C`:'-',rain,rainLabel,wind:h.wind_speed_10m?.[i]!==undefined?`${h.wind_speed_10m[i]} km/h`:'-',place:venue?.fullName||g.name||homeName,geoPlace:g.name||''}
+ }catch(e){return{ok:false,message:'날씨 조회에 실패했습니다.'}}
+}
+
 async function buildDetail(ev,leagueHint){
  const sum=await fetchSummary(ev.id,leagueHint),summary=sum.data,league=sum.league||leagueHint;const teams=summaryTeams(summary,ev),seasonYear=Number(ev?.season?.year||summary?.header?.season?.year||new Date(ev.date).getFullYear());
  let standings=null; if(league&&league!=='all'){try{standings=await fetchStandingsData(league)}catch(e){}}
