@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V16</title>
+<title>SOCCER MATCH V17</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -307,12 +307,59 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
  .odd .v{font-size:21px}
 }
 
+
+/* V17 · 라인업 약어 / 역할색 통채움 */
+.pitch-dot{
+  border:2px solid rgba(0,0,0,.22)!important;
+  box-shadow:0 3px 9px rgba(0,0,0,.36)!important;
+}
+.pitch-dot.role-main{
+  background:#ff5d68!important;
+  border-color:#ff5d68!important;
+  color:#fff!important;
+}
+.pitch-dot.role-rotation{
+  background:#f0c75e!important;
+  border-color:#f0c75e!important;
+  color:#111820!important;
+}
+.pitch-dot.role-backup{
+  background:#7d8998!important;
+  border-color:#7d8998!important;
+  color:#fff!important;
+}
+.pitch-dot.role-unknown{
+  background:#7d8998!important;
+  border-color:#7d8998!important;
+  color:#fff!important;
+}
+.pitch-name{
+  width:max-content!important;
+  max-width:86px!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  display:block!important;
+  min-height:0!important;
+  font-size:11px!important;
+  line-height:1.14!important;
+  padding:3px 6px!important;
+  border-radius:6px!important;
+  background:rgba(4,10,14,.82)!important;
+  box-shadow:0 2px 6px rgba(0,0,0,.32)!important;
+}
+.pitch-player{width:88px!important}
+@media(max-width:600px){
+ .pitch-player{width:78px!important}
+ .pitch-name{font-size:10.5px!important;max-width:78px!important;padding:3px 5px!important}
+}
+
 </style>
 </head>
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V16</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V17</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN + 보조 공개소스</div>
 </header>
 <section class="card">
@@ -810,6 +857,15 @@ function lineupRows(formation,starters){
  const defenseToAttack=[def,...middleRows,att].filter(r=>r.length);
  return [...defenseToAttack].reverse().concat(gk?[[gk]]:[])
 }
+function pitchShortName(name){
+ const raw=String(name||'').trim().replace(/\s+/g,' ');
+ if(!raw)return'';
+ const parts=raw.split(' ');
+ if(parts.length===1)return raw;
+ const first=parts[0],last=parts[parts.length-1];
+ const initial=first ? first.charAt(0).toUpperCase()+'.' : '';
+ return `${initial} ${last}`.trim()
+}
 function roleKey(name){return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'')}
 function roleClass(role){return role==='main'?'role-main':role==='backup'?'role-backup':'role-rotation'}
 function roleDotClass(role){return role==='main'?'main':role==='backup'?'backup':'rotation'}
@@ -818,7 +874,7 @@ function lineupLegend(loading=false){return`<div class="lineup-legend"><span cla
 function pitchTeamHtml(name,formation,arr,side,roles={}){
  const starters=(arr||[]).filter(x=>x.starter).slice(0,11);if(starters.length<7)return`<div class="empty">${esc(name)} 공식 선발 위치 데이터 미제공</div>`;
  const rows=lineupRows(formation,starters),players=[];
- rows.forEach((row,ri)=>{const y=12+(ri/(Math.max(rows.length-1,1)))*76;row.forEach((p,pi)=>{const x=((pi+1)/(row.length+1))*100,role=roles[roleKey(p.name)]?.role||'rotation';players.push(`<div class="pitch-player player-open" data-side="${esc(side)}" data-pid="${esc(p.id||'')}" data-pname="${esc(p.name)}" style="left:${x}%;top:${y}%" title="${esc(p.name)} · ${esc(roleLabel(role))}"><div class="pitch-dot ${roleClass(role)}">${esc(p.jersey||'')}</div><div class="pitch-name">${esc(p.name)}</div></div>`)})});
+ rows.forEach((row,ri)=>{const y=12+(ri/(Math.max(rows.length-1,1)))*76;row.forEach((p,pi)=>{const x=((pi+1)/(row.length+1))*100,role=roles[roleKey(p.name)]?.role||'rotation';players.push(`<div class="pitch-player player-open" data-side="${esc(side)}" data-pid="${esc(p.id||'')}" data-pname="${esc(p.name)}" style="left:${x}%;top:${y}%" title="${esc(p.name)} · ${esc(roleLabel(role))}"><div class="pitch-dot ${roleClass(role)}">${esc(p.jersey||'')}</div><div class="pitch-name">${esc(pitchShortName(p.name))}</div></div>`)})});
  return`<div class="pitch-half ${side}">${players.join('')}</div>`
 }
 function lineupPitchHtml(d){
