@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V14</title>
+<title>SOCCER MATCH V16</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -144,12 +144,175 @@ h1{font-size:28px}.badge{font-size:12px}.sub{font-size:14px;line-height:1.6}.sou
 .stats-wait b,.ref-no-data b{font-size:16px}.stats-wait span,.ref-no-data span{font-size:13px}.live-pill{font-size:11px}.sample-note,.compact-empty,.ref-tendency,.ref-match,.season-ref-block{font-size:13px}.ref-btn b{font-size:16px}.ref-btn small,.ref-btn .role,.ref-refresh{font-size:12px}.stat-table{font-size:14px}.pm-title{font-size:14px}.pm-body{font-size:14px;line-height:1.6}.prematch-final{font-size:14px;line-height:1.65}.fs-chip{font-size:12px}
 @media(max-width:600px){.standing-core-metric b{font-size:26px}.record{grid-template-columns:92px minmax(0,1fr) auto 31px!important}.h2h-summary-row{grid-template-columns:90px minmax(0,1fr) auto 31px!important}.detail-tabs button{font-size:14px}.hero-team{font-size:18px}}
 
+
+
+/* V15 · InsightStat식 가독성 + 선수정보 정합성 */
+body{font-size:17px;line-height:1.55}
+button,.tab,.ctrl{letter-spacing:-.15px}
+.detail-tabs button{font-size:15.5px;padding:12px 14px}
+.dtitle{font-size:20px;line-height:1.35}.dsub{font-size:15px;line-height:1.7}
+.source-note,.mini-note,.sample-note,.progress-line,.weather-note{font-size:14px!important;line-height:1.7!important}
+.empty,.compact-empty,.loading-lines{font-size:15px!important;line-height:1.7!important}
+.record{font-size:14.5px!important}.record .rdate{font-size:13.5px!important}.record .rscore{font-size:18px!important}.record .rop{font-size:14.5px}
+.h2h-details,.h2h-extra,.h2h-odds-loading{font-size:14px!important;line-height:1.7!important}.h2h-odd .k{font-size:13px}.h2h-odd .v{font-size:18px}
+.odds-book-head{font-size:14px}.odd .k{font-size:13px}.odd .v{font-size:20px}
+.stat-table{font-size:15.5px}.stat-table td{padding:11px 6px}
+.lineup-head{font-size:16px}.lineup-status{font-size:14px}.lineup-source-badge{font-size:13px;padding:7px 10px}.lineup-legend{font-size:13px;gap:11px;padding:10px}.player{font-size:15px;padding:10px}
+.pitch-team-meta{font-size:14px}.pitch-team-meta b{font-size:16px}.pitch-dot{width:34px;height:34px;font-size:12px}.pitch-name{font-size:10.5px!important;max-width:92px!important;padding:3px 5px!important;line-height:1.22!important}.pitch-player{width:88px}
+.ref-refresh{font-size:14px;padding:8px 11px}.ref-btn .role{font-size:13px}.ref-match{font-size:14px}.season-ref-head{font-size:14px}.season-ref-head b{font-size:16px}.ref-tendency{font-size:14px;line-height:1.65}
+.analysis-title{font-size:20px}.analysis-title small{font-size:14px}.analysis-detail-section .k{font-size:14px}.analysis-detail-section .v{font-size:15.5px}.analysis-evidence div{font-size:15px}
+
+.player-card-sheet{padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px));max-height:93vh}
+.player-card-top{padding:4px 0 12px}.player-card-title{font-size:22px}.player-card-title small{font-size:14px;line-height:1.5;margin-top:4px}.player-close{font-size:16px;padding:10px 14px}
+.player-hero{grid-template-columns:68px minmax(0,1fr) auto;gap:14px;padding:17px 2px 15px}.player-avatar{width:68px;height:68px;font-size:22px}.player-name{font-size:23px;line-height:1.25}.player-meta{font-size:15px;line-height:1.6;margin-top:6px}.market-value .k{font-size:13px}.market-value .v{font-size:22px;margin-top:4px}
+.player-data-note{font-size:14px;color:#9ba8b8;background:#0c131b;border:1px solid #24313e;border-radius:10px;padding:9px 10px;margin:8px 0 10px;line-height:1.55}
+.player-stat-table{font-size:16px;margin-top:4px}.player-stat-table th{font-size:14px;padding:11px 5px}.player-stat-table td{font-size:17px;padding:13px 5px}.player-stat-table td:first-child{font-size:16px;font-weight:850}.player-stat-table td.missing{color:#6f7c8c}.player-source{font-size:14px;line-height:1.7;margin-top:12px;color:#8795a6}
+#playerCardBody>.dtitle{font-size:21px;margin-top:4px}
+
+@media(max-width:600px){
+ body{font-size:17px}.detail-tabs button{font-size:15px}.hero-team{font-size:19px}.hero-meta{font-size:14px}.sheet-title{font-size:18px}
+ .pitch{min-height:540px}.pitch-player{width:80px}.pitch-name{font-size:10px!important;max-width:80px!important}.pitch-dot{width:34px;height:34px;font-size:12px}
+ .player-card-sheet{padding-left:14px;padding-right:14px}.player-hero{grid-template-columns:62px minmax(0,1fr);gap:12px}.player-avatar{width:62px;height:62px}.player-name{font-size:22px}.player-meta{font-size:14.5px}.market-value{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;text-align:left;background:#0c131b;border:1px solid #24313e;border-radius:11px;padding:9px 11px}.market-value .v{font-size:20px}.player-stat-table{font-size:15px}.player-stat-table th{font-size:13.5px}.player-stat-table td{font-size:16.5px;padding:12px 4px}
+}
+
+
+/* V16 · InsightStat 참고 컬러 계층 / 모바일 가독성 */
+:root{
+ --accent-blue:#4f8fff;
+ --accent-blue-soft:#1a2b45;
+ --accent-purple:#a78bfa;
+ --accent-purple-soft:#2c2545;
+ --accent-pink:#f28aa2;
+ --accent-pink-soft:#3a202b;
+ --accent-gold:#f0b34a;
+ --accent-gold-soft:#3a2b18;
+ --accent-cyan:#61c7e8;
+ --accent-green:#66d39a;
+ --panel-v16:#151c26;
+ --panel-v16-2:#1a2330;
+ --line-v16:#303c4c;
+}
+body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color:#f2f5f8}
+.card,.dcard{background:var(--panel-v16);border-color:var(--line-v16);box-shadow:0 1px 0 rgba(255,255,255,.015)}
+.fixture,.notice,.split-card,.metric,.record,.recent-details,.h2h-match,.player,.injury,.event-row,.ref-match,.season-ref-block,.stats-wait,.ref-no-data{background:#101720;border-color:#283544}
+
+/* 선택 상태는 흰색 대신 파랑: InsightStat처럼 바로 보이게 */
+.tab,.detail-tabs button{background:#171f2a;border-color:#2b3746;color:#c0cad6}
+.tab.active,.detail-tabs button.active{background:var(--accent-blue)!important;color:#fff!important;border-color:var(--accent-blue)!important;box-shadow:0 0 0 1px rgba(79,143,255,.18) inset}
+.primary{background:var(--accent-blue)!important;color:#fff!important;border-color:var(--accent-blue)!important}
+.badge{display:inline-flex;align-items:center;background:var(--accent-purple-soft);border:1px solid rgba(167,139,250,.5);color:#cbbcff;border-radius:999px;padding:2px 7px;font-weight:900}
+
+/* 제목은 큰 흰 글씨 + 작은 컬러 바 */
+.dtitle{display:flex;align-items:center;gap:9px;letter-spacing:-.35px;color:#f4f6fa}
+.dtitle:before{content:"";width:5px;height:20px;border-radius:5px;background:var(--accent-blue);flex:0 0 auto}
+#pane-records .dtitle:before{background:var(--accent-pink)}
+#pane-lineups .dtitle:before{background:var(--accent-blue)}
+#pane-injuries .dtitle:before{background:var(--accent-pink)}
+#pane-referee .dtitle:before{background:var(--accent-gold)}
+#pane-odds .dtitle:before{background:var(--accent-purple)}
+#pane-weather .dtitle:before{background:var(--accent-cyan)}
+#pane-stats .dtitle:before{background:var(--accent-green)}
+.dsub{color:#9ca8b7}
+
+/* 프리매치 분석: 핵심 결론은 보라, 주의는 골드 */
+.prematch-box{background:#121923;border-color:#2c3745;padding:13px 14px}
+.prematch-box .pm-title{color:#6ea7ff;font-size:14.5px;font-weight:950;letter-spacing:-.15px}
+.prematch-box .pm-body{font-size:16px;line-height:1.62;color:#edf1f5;font-weight:760}
+.prematch-box.strong{background:linear-gradient(135deg,rgba(82,63,128,.55),rgba(31,28,48,.76));border-color:#765fc2}
+.prematch-box.strong .pm-title{color:#c0abff}
+.prematch-box.warn{background:linear-gradient(135deg,rgba(94,70,30,.46),rgba(35,28,20,.72));border-color:#8a6428}
+.prematch-box.warn .pm-title{color:#f0bd5d}
+.prematch-box.analysis-open:after,.prematch-final.analysis-open:after{font-size:12px;color:#9bbcff}
+.prematch-final{background:linear-gradient(135deg,#282242,#171a2b);border-color:#6655a4;color:#f1edff;font-size:16px;line-height:1.68;padding:14px}
+.prematch-final b{color:#c1adff;font-size:17px}
+
+/* 현재 순위/득실: 숫자의 의미를 색으로 구분 */
+.team-standing-card{background:#111923;border-color:#2d3948;padding:14px}
+.standing-compare-grid>.team-standing-card:first-child{border-left:4px solid var(--accent-blue)}
+.standing-compare-grid>.team-standing-card:last-child{border-left:4px solid var(--accent-gold)}
+.standing-team-head b{font-size:18px!important;color:#f4f6f9}.standing-team-head span{font-size:14px!important;color:#a4afbd}
+.standing-core{gap:8px}.standing-core-metric{background:#0d141d;border-color:#263341;padding:12px 5px}
+.standing-core-metric span{font-size:13px!important;color:#9aa7b6}.standing-core-metric b{font-size:27px!important;margin-top:7px}
+.standing-core-metric:nth-child(1) b{color:#76aaff}.standing-core-metric:nth-child(2) b{color:#f19aaa}.standing-core-metric:nth-child(3) b{color:#b29cff}
+.standing-core-metric small{font-size:11px!important}.standing-total{font-size:14px!important;color:#9ca8b7;margin-top:11px}
+
+/* H2H / 최근 경기: WDL 색은 유지하고 H2H는 분홍 포인트 */
+#pane-records>.dcard:first-child{border-top:3px solid rgba(242,138,162,.72)}
+.team-recent-title b,.injury-team-title b{font-size:18px!important}.team-recent-title span{font-size:14px!important}
+.recent-inline-summary{background:#111923;border-color:#2b3745;font-size:14px!important}
+.recent-inline-summary b{color:#72a9ff}.record{min-height:52px}.record .rop{color:#e7ebf0}.record .rdate{color:#929fae!important}
+.record .res.W,.h2h-summary-row .res.W{box-shadow:0 0 0 1px rgba(102,211,154,.25) inset}
+.record .res.D,.h2h-summary-row .res.D{box-shadow:0 0 0 1px rgba(240,179,74,.25) inset}
+.record .res.L,.h2h-summary-row .res.L{box-shadow:0 0 0 1px rgba(242,138,162,.25) inset}
+.h2h-match{border-color:#323c49}.h2h-summary-row .score{font-size:18px}.h2h-details{color:#b4bfcb}
+.h2h-odd{background:#151a28;border-color:#3e365d}.h2h-odd .v{font-size:21px!important;color:#bca8ff}
+
+/* 배당: 홈=블루, 무=퍼플, 원정=골드 */
+#pane-odds .odds-book{background:#121823;border-color:#493d70;padding:12px}
+#pane-odds .odds-book-head{color:#baa7ef;font-weight:900}
+#pane-odds .odd{background:#101722;border-color:#2f3a49;padding:11px}
+#pane-odds .odds-line .odd:nth-child(1) .v{color:#75aaff}
+#pane-odds .odds-line .odd:nth-child(2) .v{color:#bca6ff}
+#pane-odds .odds-line .odd:nth-child(3) .v{color:#f0bb5a}
+#pane-odds .odd .k{color:#a3afbd}
+
+/* 심판: 카드 성향이 숫자로 바로 보이게 */
+#pane-referee .season-ref-block{border-left:4px solid #b98935;background:#131a22}
+#pane-referee .ref-summary .metric:nth-child(1) .v{color:#dfe7ef}
+#pane-referee .ref-summary .metric:nth-child(2) .v{color:#ffd565}
+#pane-referee .ref-summary .metric:nth-child(3) .v{color:#ff8e9a}
+#pane-referee .ref-summary .metric:nth-child(4) .v{color:#bca6ff}
+.ref-tendency{background:#171c25;border-color:#3a4451;padding:11px 12px}.ref-tendency b{color:#f2bd5b}
+.ref-refresh{background:#1b2430;border-color:#46576c;color:#eef3f8}
+
+/* 결장/부상 */
+#pane-injuries .dcard{border-left:4px solid rgba(242,138,162,.68)}
+.injury{background:#151921;border-color:#3d2c35}.injury span:last-child{color:#f3a2b2;font-weight:850}
+
+/* 라인업 / 선수 */
+.lineup-source-badge{background:#13213a;border-color:#2c5b96;color:#8fbdff}
+.lineup-legend{background:#111923;border-color:#2b3745}
+.player{background:#121923;border-color:#2a3746}
+.player-card-sheet{background:#131a24;border-color:#354253}
+.player-card-top{background:rgba(19,26,36,.97)}
+.player-data-note{background:#142035;border-color:#315487;color:#b9d1f2}
+.market-value .v{color:#bca8ff}
+.player-stat-table th{background:#101722;color:#9eabc0;border-color:#314052}
+.player-stat-table td{border-color:#293646}
+.player-stat-table td:nth-child(2){color:#78aaff}.player-stat-table td:nth-child(3){color:#e7ebf0}.player-stat-table td:nth-child(4){color:#c1acff}.player-stat-table td:nth-child(5){color:#70c7ec}
+
+/* 라이브 통계 */
+#pane-stats .metric .v{color:#6fd59c}
+.live-pill{background:#163523;border-color:#2d6c47;color:#8ee9ad}
+
+/* 설명/출처는 흐리되 너무 작지 않게 */
+.source-note,.mini-note,.sample-note,.progress-line,.weather-note,.player-source{color:#909dac!important}
+.fs-chip{background:#151d28;border-color:#324151;color:#b8c3d0}
+
+/* 분석 상세 모달도 같은 컬러 계층 */
+.analysis-sheet{background:#111822;border-color:#354253}
+.analysis-top{background:#171f2a;border-color:#303d4d}
+.analysis-detail-section{background:#141c26;border-color:#303d4c}
+.analysis-detail-section .k{color:#80adff!important}
+.analysis-evidence div{background:#101721;border-color:#293746}
+.analysis-final-line{background:#282242;border-color:#6b58aa}
+
+@media(max-width:600px){
+ .detail-tabs{gap:7px}.detail-tabs button{font-size:15.5px;padding:12px 14px}
+ .dtitle{font-size:20px}.dtitle:before{height:21px}
+ .prematch-box .pm-body{font-size:16px}.prematch-final{font-size:16px}
+ .standing-team-head b{font-size:18px!important}.standing-core-metric b{font-size:28px!important}
+ .standing-core-metric span{font-size:13px!important}
+ .team-recent-title b,.injury-team-title b{font-size:18px!important}
+ .odd .v{font-size:21px}
+}
+
 </style>
 </head>
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V14</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V16</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN + 보조 공개소스</div>
 </header>
 <section class="card">
@@ -745,7 +908,7 @@ function parseAthleteSeasonStats(payload){
 }
 async function athleteStatsRaw(league,id,season){const key=`siteStats|${league}|${id}|${season}`;if(state.playerStatsCache.has(key))return state.playerStatsCache.get(key);try{const d=await fetchJson(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/stats?season=${season}`,{timeoutMs:4500});state.playerStatsCache.set(key,d);return d}catch(e){return null}}
 async function athleteGamelogCount(league,id,season){try{const d=await fetchJson(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/gamelog?season=${season}`,{timeoutMs:4500}),seen=new Set();for(const st of (d?.seasonTypes||[]))for(const cat of (st?.categories||[]))for(const ev of (cat?.events||[])){const eid=String(ev?.eventId||ev?.id||ev?.event?.id||'');if(eid)seen.add(eid)}if(!seen.size)for(const ev of (d?.events||[])){const eid=String(ev?.eventId||ev?.id||ev?.event?.id||'');if(eid)seen.add(eid)}return seen.size||null}catch(e){return null}}
-function playerSeasonStoreKey(league,id){return`playerSeasonV2:${league}:${id}`}
+function playerSeasonStoreKey(league,id){return`playerSeasonV3:${league}:${id}`}
 function readPlayerSeasonCache(league,id){try{const raw=localStorage.getItem(playerSeasonStoreKey(league,id));if(!raw)return null;const x=JSON.parse(raw);return Date.now()-(x.savedAt||0)<43200000?x:null}catch(e){return null}}
 function savePlayerSeasonCache(league,id,rows,profile){try{localStorage.setItem(playerSeasonStoreKey(league,id),JSON.stringify({savedAt:Date.now(),rows,profile:{name:profile?.displayName||'',age:profile?.age||'',foot:profile?.preferredFoot||'',img:profile?.headshot?.href||profile?.headshot||''}}))}catch(e){}}
 function marketCacheKey(name,team){return`mv:v3:${roleKey(name)}:${roleKey(team)}`}
@@ -825,9 +988,28 @@ function leagueCompetitionMatch(league,name){const n=String(name||'').toLowerCas
 let playerHistoryActive=false;
 function hidePlayerModal(){$('#playerModal').classList.add('hidden');$('#playerModal').setAttribute('aria-hidden','true');playerHistoryActive=false}
 function closePlayerModal(){if(playerHistoryActive&&history.state?.soccerPlayer)history.back();else hidePlayerModal()}
+function playerStatClean(v){const n=statInt(v);return n===null||n<0?null:n}
+function sanitizePlayerSeasonRow(row){
+ const r={year:row?.year,apps:playerStatClean(row?.apps),starts:playerStatClean(row?.starts),goals:playerStatClean(row?.goals),assists:playerStatClean(row?.assists)};
+ if(r.apps!==null&&r.starts!==null&&r.starts>r.apps)r.starts=null;
+ return r
+}
+function mergePlayerSeasonRow(year,sources){
+ const sourceRows=[['html',sources.html.get(year)],['core',sources.core.get(year)],['site',sources.site.get(year)],['tm',sources.tm.get(year)],['cache',sources.cache.get(year)]].map(([src,row])=>[src,row?sanitizePlayerSeasonRow({...row,year}):null]).filter(([,row])=>row);
+ const result={year,apps:null,starts:null,goals:null,assists:null},src={};
+ // ESPN 계열을 우선 사용한다. 서로 다른 출처의 숫자를 무작정 섞어 출장<선발 같은 모순이 생기지 않도록 한다.
+ for(const [name,row] of sourceRows.filter(([n])=>['html','core','site'].includes(n))){for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&row[k]!==null){result[k]=row[k];src[k]=name}}
+ // Transfermarkt는 ESPN에서 비어 있는 값의 보조 소스다. 선발이 이미 확인된 경우에는 더 낮은 출장 수로 덮지 않는다.
+ const tm=sourceRows.find(([n])=>n==='tm')?.[1];if(tm){if(result.apps===null&&result.starts===null&&tm.apps!==null){result.apps=tm.apps;src.apps='tm'}for(const k of ['goals','assists'])if(result[k]===null&&tm[k]!==null){result[k]=tm[k];src[k]='tm'}}
+ const cache=sourceRows.find(([n])=>n==='cache')?.[1];if(cache){for(const k of ['apps','starts','goals','assists'])if(result[k]===null&&cache[k]!==null){result[k]=cache[k];src[k]='cache'}}
+ if(result.apps!==null&&result.starts!==null&&result.starts>result.apps){
+  const conf=n=>({html:5,core:4,site:3,tm:2,cache:1}[n]||0);if(conf(src.starts)>conf(src.apps))result.apps=null;else result.starts=null
+ }
+ return result
+}
 function playerRowsHtml(rows,d,pending=false){
- const list=pending?rows:rows.filter(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null));if(!list.length)return'<div class="compact-empty">시즌 기록을 확인하지 못했습니다.</div>';const val=v=>v===null||v===undefined?(pending?'…':'-'):v;
- return`<table class="player-stat-table"><thead><tr><th>시즌</th><th>출장</th><th>선발</th><th>득점</th><th>도움</th></tr></thead><tbody>${list.map(r=>`<tr><td>${esc(seasonLabelForPlayer(d.league,r.year))}</td><td>${esc(val(r.apps))}</td><td>${esc(val(r.starts))}</td><td>${esc(val(r.goals))}</td><td>${esc(val(r.assists))}</td></tr>`).join('')}</tbody></table>`
+ const clean=rows.map(sanitizePlayerSeasonRow),list=pending?clean:clean.filter(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null));if(!list.length)return'<div class="compact-empty">확인 가능한 시즌 기록이 없습니다.</div>';const val=v=>v===null||v===undefined?(pending?'…':'-'):v;
+ return`<div class="player-data-note">확인된 실제 기록만 표시 · 추정 선발 횟수는 사용하지 않음</div><table class="player-stat-table"><thead><tr><th>시즌</th><th>출장</th><th>선발</th><th>득점</th><th>도움</th></tr></thead><tbody>${list.map(r=>`<tr><td>${esc(seasonLabelForPlayer(d.league,r.year))}</td><td class="${r.apps===null?'missing':''}">${esc(val(r.apps))}</td><td class="${r.starts===null?'missing':''}">${esc(val(r.starts))}</td><td class="${r.goals===null?'missing':''}">${esc(val(r.goals))}</td><td class="${r.assists===null?'missing':''}">${esc(val(r.assists))}</td></tr>`).join('')}</tbody></table>`
 }
 let playerLoadSeq=0;
 function tmSeasonYear(x){const raw=[x?.seasonId,x?.season_id,x?.seasonName,x?.season_name,x?.season].filter(v=>v!==undefined&&v!==null).join(' '),m=raw.match(/20\d{2}/);return Number(m?.[0])||null}
@@ -838,17 +1020,17 @@ async function sitePlayerSeasonRows(league,id,years,coreRows=[]){
 async function openPlayerModal(p,side,d){
  const seq=++playerLoadSeq;if($('#playerModal').classList.contains('hidden')){history.pushState({soccerPlayer:true,playerId:String(p.id||'')},'',location.href);playerHistoryActive=true}$('#playerModal').classList.remove('hidden');$('#playerModal').setAttribute('aria-hidden','false');
  const team=d.teams?.[side]||{},role=d.lineupRoles?.[side]?.[roleKey(p.name)]?.role||'rotation',roleTxt=roleLabel(role),years=[];for(let y=d.seasonYear;y>=d.seasonYear-4;y--)years.push(y);
- const cached=p.id?readPlayerSeasonCache(d.league,p.id):null,sources={core:new Map(),site:new Map(),tm:new Map(),html:new Map(),cache:new Map((cached?.rows||[]).map(r=>[r.year,r]))},baseProfile=cached?.profile||{},fallback=y=>roleStartsFallback(d,side,p,y);
- const compose=()=>years.map(y=>{const c=sources.core.get(y)||{},s=sources.site.get(y)||{},t=sources.tm.get(y)||{},e=sources.html.get(y)||{},k=sources.cache.get(y)||{};return{year:y,apps:t.apps??e.apps??c.apps??s.apps??k.apps??null,starts:e.starts??c.starts??s.starts??k.starts??fallback(y),goals:t.goals??e.goals??c.goals??s.goals??k.goals??null,assists:t.assists??e.assists??c.assists??s.assists??k.assists??null}});
+ const cached=p.id?readPlayerSeasonCache(d.league,p.id):null,sources={core:new Map(),site:new Map(),tm:new Map(),html:new Map(),cache:new Map((cached?.rows||[]).map(r=>[r.year,sanitizePlayerSeasonRow(r)]))},baseProfile=cached?.profile||{};
+ const compose=()=>years.map(y=>mergePlayerSeasonRow(y,sources));
  const render=(pending=true)=>{if(seq!==playerLoadSeq||$('#playerModal').classList.contains('hidden'))return;$('#playerStatsFast').innerHTML=playerRowsHtml(compose(),d,pending)};
- $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${baseProfile.img?`<img src="${esc(baseProfile.img)}" alt="">`:esc(p.jersey||'?')}</div><div><div class="player-name">${esc(baseProfile.name||p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||'포지션 미표기')} · ${esc(roleTxt)}${baseProfile.age?` · ${esc(baseProfile.age)}세`:''}${baseProfile.foot?` · ${esc(baseProfile.foot)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v" id="playerMarket">불러오는 중</div></div></div><div class="dtitle">시즌별 기록 · ${esc(LEAGUE_NAME.get(d.league)||d.league)}</div><div id="playerStatsFast">${playerRowsHtml(compose(),d,true)}</div><div class="player-source" id="playerSourceStatus">ESPN Core · ESPN 선수 페이지 · Transfermarkt를 동시에 확인합니다. 한 경로가 실패해도 다른 경로의 값은 유지합니다.</div>`;
+ $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${baseProfile.img?`<img src="${esc(baseProfile.img)}" alt="">`:esc(p.jersey||'?')}</div><div><div class="player-name">${esc(baseProfile.name||p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||'포지션 미표기')} · ${esc(roleTxt)}${baseProfile.age?` · ${esc(baseProfile.age)}세`:''}${baseProfile.foot?` · ${esc(baseProfile.foot)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v" id="playerMarket">불러오는 중</div></div></div><div class="dtitle">시즌별 기록 · ${esc(LEAGUE_NAME.get(d.league)||d.league)}</div><div id="playerStatsFast">${playerRowsHtml(compose(),d,true)}</div><div class="player-source" id="playerSourceStatus">ESPN 기록을 우선 확인하고 Transfermarkt는 빈 항목만 보조합니다. 숫자 관계를 검증한 실제 기록만 표시합니다.</div>`;
  if(!p.id){$('#playerStatsFast').innerHTML='<div class="compact-empty">선수 ID가 없어 ESPN 시즌 기록을 직접 연결하지 못했습니다.</div>';const mv=await fetchMarketValue(p.name,team.name||'');if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent=formatEuroMarket(mv.value)}return}
  const profileP=coreAthleteProfile(d.league,p.id).then(profile=>{if(seq!==playerLoadSeq)return null;const ath=profile?.athlete||profile||{},img=ath?.headshot?.href||ath?.headshot||'',age=ath?.age||'',foot=ath?.preferredFoot||'';const av=document.querySelector('#playerCardBody .player-avatar');if(av&&img)av.innerHTML=`<img src="${esc(img)}" alt="">`;const meta=document.querySelector('#playerCardBody .player-meta');if(meta)meta.innerHTML=`${esc(team.name||'')} · ${esc(p.pos||ath?.position?.abbreviation||'포지션 미표기')} · ${esc(roleTxt)}${age?` · ${esc(age)}세`:''}${foot?` · ${esc(foot)}`:''}`;return ath}).catch(()=>null);
  const coreP=corePlayerSeasonRows(d.league,p.id,years).then(rows=>{rows.forEach(r=>sources.core.set(r.year,r));render(true);return rows}).catch(()=>[]);
  const htmlP=fetchEspnPlayerHtmlRows(p.id).then(rows=>{rows.forEach(r=>sources.html.set(r.year,r));render(true);return rows}).catch(()=>[]);
  const marketP=fetchMarketValue(p.name,team.name||'').then(async mv=>{if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent=formatEuroMarket(mv.value)}if(!mv.tmId)return[];const stats=await fetchTransfermarktStats(mv.tmId),tmByYear=new Map();for(const x of stats){if(!leagueCompetitionMatch(d.league,x?.competitionName||x?.competition_name||x?.competition?.name))continue;const y=tmSeasonYear(x);if(!y)continue;tmByYear.set(y,{year:y,apps:statInt(x?.appearances??x?.apps),goals:statInt(x?.goals),assists:statInt(x?.assists)})}sources.tm=tmByYear;render(true);return stats}).catch(()=>{if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent='미제공'}return[]});
  const siteP=coreP.then(rows=>sitePlayerSeasonRows(d.league,p.id,years,rows)).then(rows=>{rows.forEach(r=>sources.site.set(r.year,r));render(false);return rows}).catch(()=>[]);
- const [ath]=await Promise.all([profileP,coreP,htmlP,marketP,siteP]);if(seq!==playerLoadSeq)return;const finalRows=compose(),profile=ath||baseProfile||{};if(finalRows.some(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null)))savePlayerSeasonCache(d.league,p.id,finalRows,profile);render(false);const st=document.getElementById('playerSourceStatus');if(st)st.textContent='출장·선발·득점·도움은 ESPN Core/ESPN 선수 페이지/Transfermarkt 공개 기록을 교차 사용합니다. 실제로 확인된 값만 표시합니다.'
+ const [ath]=await Promise.all([profileP,coreP,htmlP,marketP,siteP]);if(seq!==playerLoadSeq)return;const finalRows=compose(),profile=ath||baseProfile||{};if(finalRows.some(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null)))savePlayerSeasonCache(d.league,p.id,finalRows,profile);render(false);const st=document.getElementById('playerSourceStatus');if(st)st.textContent='출장·선발·득점·도움은 ESPN 기록을 우선 사용하고 Transfermarkt는 보조로만 사용합니다. 추정값은 넣지 않으며 출장보다 선발이 많아지는 등 모순된 값은 제외합니다.'
 }
 function statsHtml(rows,teams){if(!rows?.length)return'<div class="empty">경기 통계 데이터 미제공</div>';return`<table class="stat-table"><tbody>${rows.map(r=>`<tr><td class="${r.percent?'pct':''}">${esc(r.home)}</td><td>${esc(r.label)}</td><td class="${r.percent?'pct':''}">${esc(r.away)}</td></tr>`).join('')}</tbody></table><div class="source-note">${esc(teams.home.name)} ← 통계 → ${esc(teams.away.name)}</div>`}
 function ymd2(d){return d.toISOString().slice(0,10).replaceAll('-','')}
