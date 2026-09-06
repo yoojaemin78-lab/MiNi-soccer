@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V8</title>
+<title>SOCCER MATCH V9</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -99,12 +99,27 @@ button,input,select{font:inherit}.app{max-width:920px;margin:0 auto;padding:12px
 .prematch-final{background:#101923;border:1px solid #35475b;border-radius:11px;padding:11px;font-size:11px;line-height:1.6}
 .lineup-source-badge{display:inline-flex;align-items:center;gap:5px;border:1px solid #2b3949;background:#0d141c;color:#b9c4d1;border-radius:999px;padding:5px 8px;font-size:8.5px;font-weight:900;margin-bottom:8px}
 
+.prematch-box.analysis-open,.prematch-final.analysis-open{cursor:pointer;position:relative;padding-right:34px;transition:border-color .15s,transform .15s}
+.prematch-box.analysis-open:after,.prematch-final.analysis-open:after{content:"상세 ›";position:absolute;right:10px;top:10px;color:#7f91a4;font-size:8px;font-weight:900}
+.prematch-box.analysis-open:active,.prematch-final.analysis-open:active{transform:scale(.995)}
+.analysis-modal{position:fixed;inset:0;z-index:1300;background:rgba(3,6,10,.88);display:flex;align-items:flex-end;justify-content:center;padding:14px}
+.analysis-modal.hidden{display:none}
+.analysis-sheet{width:min(900px,100%);max-height:92vh;background:#0c1219;border:1px solid #2a394a;border-radius:20px 20px 14px 14px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+.analysis-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#111925;border-bottom:1px solid #263444;padding:12px 14px}
+.analysis-title{font-size:14px;font-weight:950}.analysis-title small{display:block;color:#7f8d9e;font-size:9px;font-weight:700;margin-top:3px}
+.analysis-close{padding:8px 11px;background:#1a2430}
+.analysis-body{padding:12px 12px 22px;overflow-y:auto;max-height:calc(92vh - 62px);-webkit-overflow-scrolling:touch}
+.analysis-detail-section{background:#101720;border:1px solid #23303e;border-radius:12px;padding:11px;margin-bottom:9px}
+.analysis-detail-section .k{font-size:9px;color:#8392a4;font-weight:900;margin-bottom:6px}.analysis-detail-section .v{font-size:11px;line-height:1.68;color:#e3e9ef}
+.analysis-evidence{display:grid;gap:6px}.analysis-evidence div{background:#0b1118;border:1px solid #1d2935;border-radius:9px;padding:8px 9px;font-size:10px;line-height:1.5;color:#c8d1dc}
+.analysis-final-line{border-color:#3b5067;background:#101a25}
+
 </style>
 </head>
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V8</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 데이터 · 경기/통계/H2H/피치라인업/결장/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V9</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 데이터 · 경기/통계/H2H/피치라인업/결장/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN 중심 · 무료</div>
 </header>
 <section class="card">
@@ -158,12 +173,19 @@ button,input,select{font:inherit}.app{max-width:920px;margin:0 auto;padding:12px
   </div>
 </div>
 
+<div id="analysisModal" class="analysis-modal hidden" aria-hidden="true">
+  <div class="analysis-sheet">
+    <div class="analysis-top"><div class="analysis-title" id="analysisModalTitle">상세 분석<small id="analysisModalSub"></small></div><button id="closeAnalysis" class="analysis-close">닫기</button></div>
+    <div id="analysisModalBody" class="analysis-body"></div>
+  </div>
+</div>
+
 <script>
 const $=s=>document.querySelector(s);
 const ESPN='https://site.api.espn.com';
 const ESPN_CORE='https://sports.core.api.espn.com';
 const TDB='https://www.thesportsdb.com/api/v1/json/123';
-const state={mode:'match',matches:[],eventLeague:new Map(),standingCache:new Map(),jsonCache:new Map(),currentDetail:null,lastScoreboard:null,refCache:new Map(),refSeasonCache:new Map(),lineupRoleCache:new Map(),h2hCache:new Map(),playerStatsCache:new Map(),marketValueCache:new Map(),h2hOddsCache:new Map(),coreAthleteCache:new Map(),corePlayerStatsCache:new Map(),officialEventCache:new Map(),injuryRosterCache:new Map()};
+const state={mode:'match',matches:[],eventLeague:new Map(),standingCache:new Map(),jsonCache:new Map(),currentDetail:null,lastScoreboard:null,refCache:new Map(),refSeasonCache:new Map(),refereeViewCache:new Map(),lineupRoleCache:new Map(),h2hCache:new Map(),playerStatsCache:new Map(),marketValueCache:new Map(),h2hOddsCache:new Map(),footballDataCache:new Map(),coreAthleteCache:new Map(),corePlayerStatsCache:new Map(),officialEventCache:new Map(),injuryRosterCache:new Map()};
 
 const BASE_LEAGUES=[
  ['all','전체 축구'],['eng.1','EPL'],['esp.1','LaLiga'],['ita.1','Serie A'],['ger.1','Bundesliga'],['fra.1','Ligue 1'],
@@ -369,6 +391,41 @@ async function historicalScoreboardEvent(match,d){
  for(const lg of cands){try{const path=`/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/scoreboard?dates=${day}&limit=1000`,wrap=await firstJson([ESPN+path,'https://site.web.api.espn.com'+path]),events=wrap.data?.events||[],ev=events.find(x=>String(x.id)===String(match.id))||events.find(x=>{const cs=x?.competitions?.[0]?.competitors||[],ids=cs.map(c=>String(c?.team?.id||''));return ids.includes(String(d.teams.home.id))&&ids.includes(String(d.teams.away.id))});if(ev)return{ev,league:inferLeague(ev,lg)}}catch(e){}}
  return null
 }
+
+const FOOTBALL_DATA_CODES={'eng.1':'E0','eng.2':'E1','eng.3':'E2','eng.4':'E3','sco.1':'SC0','esp.1':'SP1','ita.1':'I1','ger.1':'D1','fra.1':'F1','ned.1':'N1','por.1':'P1','bel.1':'B1','tur.1':'T1','gre.1':'G1'};
+function fdSeasonCode(year){const y=Number(year);if(!Number.isFinite(y))return'';return`${String(y).slice(-2)}${String(y+1).slice(-2)}`}
+function csvCells(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}else if(ch===','&&!q){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out}
+function parseFdCsv(txt){const lines=String(txt||'').replace(/^\uFEFF/,'').split(/\r?\n/).filter(Boolean);if(lines.length<2)return[];const head=csvCells(lines[0]).map(x=>x.trim());return lines.slice(1).map(line=>{const c=csvCells(line),o={};head.forEach((h,i)=>o[h]=c[i]??'');return o}).filter(x=>x.Date&&x.HomeTeam&&x.AwayTeam)}
+function fdDateIso(v){const m=String(v||'').trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);if(!m)return'';let y=Number(m[3]);if(y<100)y+=(y>=90?1900:2000);return`${y}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`}
+const FD_TEAM_ALIASES={
+ 'manchestercity':'mancity','mancity':'mancity','manchesterunited':'manunited','manunited':'manunited','tottenhamhotspur':'tottenham','tottenham':'tottenham',
+ 'nottinghamforest':'nottmforest','nottinghamforestfc':'nottmforest','nottmforest':'nottmforest','wolverhamptonwanderers':'wolves','wolverhampton':'wolves','wolves':'wolves',
+ 'newcastleunited':'newcastle','newcastle':'newcastle','westhamunited':'westham','westham':'westham','brightonandhovealbion':'brighton','brighton':'brighton',
+ 'leicestercity':'leicester','leicester':'leicester','leedsunited':'leeds','leeds':'leeds','norwichcity':'norwich','norwich':'norwich','coventrycity':'coventry','coventry':'coventry',
+ 'sheffieldunited':'sheffieldutd','sheffieldutd':'sheffieldutd','sheffieldwednesday':'sheffieldweds','sheffieldweds':'sheffieldweds','queensparkrangers':'qpr','qpr':'qpr',
+ 'internazionale':'inter','intermilan':'inter','inter':'inter','acmilan':'milan','milan':'milan','atleticomadrid':'atleticomadrid','athleticomadrid':'atleticomadrid'
+};
+function fdTeamKey(v){let k=roleKey(String(v||'').replace(/\b(fc|cf|afc|sc|calcio|club|football|futbol)\b/ig,' '));return FD_TEAM_ALIASES[k]||k}
+function fdTeamSame(a,b){const x=fdTeamKey(a),y=fdTeamKey(b);return!!x&&!!y&&(x===y||(x.length>5&&y.includes(x))||(y.length>5&&x.includes(y)))}
+async function fetchTextFast(url,timeout=5500){
+ const tries=[url,`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
+ const one=async u=>{try{const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout),r=await fetch(u,{signal:c.signal});clearTimeout(tm);return r.ok?await r.text():null}catch(e){return null}};
+ return await new Promise(resolve=>{let left=tries.length,done=false;tries.forEach(u=>one(u).then(t=>{if(done)return;if(t&&t.includes(',')){done=true;resolve(t)}else if(--left===0){done=true;resolve(null)}}))})
+}
+async function footballDataRows(league,seasonYear){const code=FOOTBALL_DATA_CODES[league],season=fdSeasonCode(seasonYear);if(!code||!season)return[];const key=`${league}|${season}`;if(state.footballDataCache.has(key))return state.footballDataCache.get(key);const url=`https://www.football-data.co.uk/mmz4281/${season}/${code}.csv`,txt=await fetchTextFast(url),rows=txt?parseFdCsv(txt):[];state.footballDataCache.set(key,rows);return rows}
+function firstFdNum(row,keys){for(const k of keys){const n=Number(row?.[k]);if(Number.isFinite(n)&&n>0)return n}return null}
+function firstFdLine(row,keys){for(const k of keys){const raw=row?.[k];if(raw===undefined||raw===null||raw==='')continue;const n=Number(raw);if(Number.isFinite(n))return n}return null}
+async function loadFootballDataHistoricalOdds(match,d){
+ const lg=(match.league&&match.league!=='all'?match.league:d.league),code=FOOTBALL_DATA_CODES[lg];if(!code)return null;
+ const seasonYear=Number(match.season)||(CALENDAR_SEASON_LEAGUES.has(lg)?new Date(match.date).getUTCFullYear():(new Date(match.date).getUTCMonth()>=6?new Date(match.date).getUTCFullYear():new Date(match.date).getUTCFullYear()-1));
+ const rows=await footballDataRows(lg,seasonYear);if(!rows.length)return null;const iso=new Date(match.date).toISOString().slice(0,10),target=new Date(`${iso}T12:00:00Z`).getTime();
+ let best=null,bestGap=9e15;for(const r of rows){if(!fdTeamSame(r.HomeTeam,match.homeName)||!fdTeamSame(r.AwayTeam,match.awayName))continue;const di=fdDateIso(r.Date);if(!di)continue;const gap=Math.abs(new Date(`${di}T12:00:00Z`).getTime()-target);if(gap<=86400000&&gap<bestGap){best=r;bestGap=gap}}
+ if(!best)return null;
+ const home=firstFdNum(best,['PSCH','B365CH','AvgCH','MaxCH','PSH','B365H','AvgH','MaxH']),draw=firstFdNum(best,['PSCD','B365CD','AvgCD','MaxCD','PSD','B365D','AvgD','MaxD']),away=firstFdNum(best,['PSCA','B365CA','AvgCA','MaxCA','PSA','B365A','AvgA','MaxA']);
+ const spread=firstFdLine(best,['AHCh','AHh']),hasOu=['B365C>2.5','B365C<2.5','AvgC>2.5','AvgC<2.5','B365>2.5','B365<2.5','Avg>2.5','Avg<2.5'].some(k=>Number(best?.[k])>0),ou=hasOu?2.5:null;
+ const od={provider:'Football-Data.co.uk',home,draw,away,spread,ou,details:'역사 배당 데이터'};return oddsHasValue(od)?od:null
+}
+
 async function loadHistoricalOdds(match,d){
  const memory=state.h2hOddsCache.get(match.id);if(oddsHasValue(memory))return memory;
  const saved=readH2HOddsCache(match.id);if(saved.hit){state.h2hOddsCache.set(match.id,saved.value);return saved.value}
@@ -377,6 +434,7 @@ async function loadHistoricalOdds(match,d){
   const lg=match.league&&match.league!=='all'?match.league:(d.league||'all'),sw=await fetchSummary(match.id,lg),sum=sw.data,resolved=sw.league||lg;
   if(sum){const fakeEv={id:match.id,competitions:sum?.header?.competitions||[]},arr=await loadOdds(sum,fakeEv,resolved),od=chooseHistoryOdds(arr);if(od){state.h2hOddsCache.set(match.id,od);saveH2HOddsCache(match.id,od);return od}}
   const board=await historicalScoreboardEvent(match,d);if(board){const arr=await loadOdds(null,board.ev,board.league),od=chooseHistoryOdds(arr);if(od){state.h2hOddsCache.set(match.id,od);saveH2HOddsCache(match.id,od);return od}}
+  const fd=await loadFootballDataHistoricalOdds(match,d);if(fd){state.h2hOddsCache.set(match.id,fd);saveH2HOddsCache(match.id,fd);return fd}
   state.h2hOddsCache.delete(match.id);return null
  }catch(e){state.h2hOddsCache.delete(match.id);return null}
 }
@@ -616,7 +674,7 @@ async function fetchExternalJson(url){
  return await new Promise(resolve=>{let left=tries.length,done=false;tries.forEach(u=>attempt(u).then(j=>{if(done)return;if(j){done=true;resolve(j);return}if(--left===0){done=true;resolve(null)}}))})
 }
 function formatEuroMarket(v){
- if(v===null||v===undefined||v==='')return'미제공';if(typeof v==='string'&&/[€£$]/.test(v)&&/(bn|b|m|k)/i.test(v)){const m=v.match(/([\d,.]+)\s*(bn|b|m|k)/i);if(m){const n=Number(m[1].replace(/,/g,'')),s=m[2].toLowerCase()==='bn'?'b':m[2].toLowerCase();if(Number.isFinite(n))return`€${n.toFixed(1).replace(/\.0$/,'')}${s}`}}
+ if(v===null||v===undefined||v==='')return'미제공';if(typeof v==='string'&&/[€£$]/.test(v)&&/(bn|b|m|k)\b/i.test(v)){const m=v.match(/([\d,.]+)\s*(bn|b|m|k)/i);if(m){const n=Number(m[1].replace(/,/g,'')),s=m[2].toLowerCase()==='bn'?'b':m[2].toLowerCase();if(Number.isFinite(n))return`€${n.toFixed(1).replace(/\.0$/,'')}${s}`}}
  const n=Number(String(v).replace(/[^0-9.-]/g,''));if(!Number.isFinite(n))return String(v);const compact=x=>x.toFixed(1).replace(/\.0$/,'');if(Math.abs(n)>=1e9)return`€${compact(n/1e9)}b`;if(Math.abs(n)>=1e6)return`€${compact(n/1e6)}m`;if(Math.abs(n)>=1e3)return`€${Math.abs(n)>=100000?Math.round(n/1e3):compact(n/1e3)}k`;return`€${Math.round(n)}`
 }
 async function fetchMarketValue(name,team){
@@ -629,6 +687,16 @@ async function fetchMarketValue(name,team){
 async function fetchTransfermarktStats(tmId){
  if(!tmId)return[];const data=await fetchExternalJson(`https://transfermarkt-api.fly.dev/players/${encodeURIComponent(tmId)}/stats`),a=data?.stats||data?.data?.stats||data?.results||data;return Array.isArray(a)?a:[]
 }
+
+async function fetchEspnPlayerHtmlRows(id){
+ if(!id)return[];const url=`https://www.espn.com/soccer/player/stats/_/id/${encodeURIComponent(id)}`,txt=await fetchTextFast(url,6000);if(!txt)return[];
+ try{const doc=new DOMParser().parseFromString(txt,'text/html'),out=[];for(const table of doc.querySelectorAll('table')){const heads=[...table.querySelectorAll('thead th')].map(x=>snakeStat(x.textContent)),trs=[...table.querySelectorAll('tbody tr')];if(!trs.length)continue;for(const tr of trs){const cells=[...tr.querySelectorAll('th,td')].map(x=>(x.textContent||'').trim()),joined=cells.join(' '),m=joined.match(/(20\d{2})(?:[-\/]\d{2,4})?/);if(!m)continue;const get=(keys)=>{for(const k of keys){const i=heads.findIndex(h=>h===k||h.includes(k));if(i>=0&&i<cells.length){const n=statInt(cells[i]);if(n!==null)return n}}return null};let apps=get(['apps','appearances','gp','gamesplayed']),starts=get(['strt','starts','gamesstarted']),goals=get(['g','gls','goals']),assists=get(['a','ast','assists']);
+  if([apps,starts,goals,assists].every(v=>v===null)){const nums=cells.map(statInt);if(nums.length>=5){apps=nums[nums.length-4];starts=nums[nums.length-3];goals=nums[nums.length-2];assists=nums[nums.length-1]}}
+  if([apps,starts,goals,assists].some(v=>v!==null))out.push({year:Number(m[1]),apps,starts,goals,assists})}}
+ const best=new Map();for(const r of out){const old=best.get(r.year),score=[r.apps,r.starts,r.goals,r.assists].filter(v=>v!==null).length,os=old?[old.apps,old.starts,old.goals,old.assists].filter(v=>v!==null).length:-1;if(score>os)best.set(r.year,r)}return[...best.values()]
+ }catch(e){return[]}
+}
+
 function leagueCompetitionMatch(league,name){const n=String(name||'').toLowerCase(),map={'eng.1':['premier league'],'esp.1':['laliga','la liga'],'ita.1':['serie a'],'ger.1':['bundesliga'],'fra.1':['ligue 1'],'eng.2':['championship'],'uefa.champions':['champions league'],'uefa.europa':['europa league']},words=map[league];return !words||words.some(x=>n.includes(x))}
 let playerHistoryActive=false;
 function hidePlayerModal(){$('#playerModal').classList.add('hidden');$('#playerModal').setAttribute('aria-hidden','true');playerHistoryActive=false}
@@ -646,16 +714,17 @@ async function sitePlayerSeasonRows(league,id,years,coreRows=[]){
 async function openPlayerModal(p,side,d){
  const seq=++playerLoadSeq;if($('#playerModal').classList.contains('hidden')){history.pushState({soccerPlayer:true,playerId:String(p.id||'')},'',location.href);playerHistoryActive=true}$('#playerModal').classList.remove('hidden');$('#playerModal').setAttribute('aria-hidden','false');
  const team=d.teams?.[side]||{},role=d.lineupRoles?.[side]?.[roleKey(p.name)]?.role||'rotation',roleTxt=roleLabel(role),years=[];for(let y=d.seasonYear;y>=d.seasonYear-4;y--)years.push(y);
- const cached=p.id?readPlayerSeasonCache(d.league,p.id):null,sources={core:new Map(),site:new Map(),tm:new Map(),cache:new Map((cached?.rows||[]).map(r=>[r.year,r]))},baseProfile=cached?.profile||{},fallback=y=>roleStartsFallback(d,side,p,y);
- const compose=()=>years.map(y=>{const c=sources.core.get(y)||{},s=sources.site.get(y)||{},t=sources.tm.get(y)||{},k=sources.cache.get(y)||{};return{year:y,apps:t.apps??c.apps??s.apps??k.apps??null,starts:c.starts??s.starts??k.starts??fallback(y),goals:t.goals??c.goals??s.goals??k.goals??null,assists:t.assists??c.assists??s.assists??k.assists??null}});
- const render=(pending=true)=>{if(seq!==playerLoadSeq||$('#playerModal').classList.contains('hidden'))return;const rows=compose();$('#playerStatsFast').innerHTML=playerRowsHtml(rows,d,pending);};
- $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${baseProfile.img?`<img src="${esc(baseProfile.img)}" alt="">`:esc(p.jersey||'?')}</div><div><div class="player-name">${esc(baseProfile.name||p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||'포지션 미표기')} · ${esc(roleTxt)}${baseProfile.age?` · ${esc(baseProfile.age)}세`:''}${baseProfile.foot?` · ${esc(baseProfile.foot)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v" id="playerMarket">불러오는 중</div></div></div><div class="dtitle">시즌별 기록 · ${esc(LEAGUE_NAME.get(d.league)||d.league)}</div><div id="playerStatsFast">${playerRowsHtml(compose(),d,true)}</div><div class="player-source" id="playerSourceStatus">ESPN과 Transfermarkt 공개 기록을 병렬로 확인합니다. 먼저 도착한 값은 유지하고, 뒤에 오는 값으로 빈칸만 보완합니다.</div>`;
- if(!p.id){$('#playerStatsFast').innerHTML='<div class="compact-empty">선수 ID가 없어 기록을 불러오지 못했습니다.</div>';const mv=await fetchMarketValue(p.name,team.name||'');if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent=formatEuroMarket(mv.value)}return}
+ const cached=p.id?readPlayerSeasonCache(d.league,p.id):null,sources={core:new Map(),site:new Map(),tm:new Map(),html:new Map(),cache:new Map((cached?.rows||[]).map(r=>[r.year,r]))},baseProfile=cached?.profile||{},fallback=y=>roleStartsFallback(d,side,p,y);
+ const compose=()=>years.map(y=>{const c=sources.core.get(y)||{},s=sources.site.get(y)||{},t=sources.tm.get(y)||{},e=sources.html.get(y)||{},k=sources.cache.get(y)||{};return{year:y,apps:t.apps??e.apps??c.apps??s.apps??k.apps??null,starts:e.starts??c.starts??s.starts??k.starts??fallback(y),goals:t.goals??e.goals??c.goals??s.goals??k.goals??null,assists:t.assists??e.assists??c.assists??s.assists??k.assists??null}});
+ const render=(pending=true)=>{if(seq!==playerLoadSeq||$('#playerModal').classList.contains('hidden'))return;$('#playerStatsFast').innerHTML=playerRowsHtml(compose(),d,pending)};
+ $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${baseProfile.img?`<img src="${esc(baseProfile.img)}" alt="">`:esc(p.jersey||'?')}</div><div><div class="player-name">${esc(baseProfile.name||p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||'포지션 미표기')} · ${esc(roleTxt)}${baseProfile.age?` · ${esc(baseProfile.age)}세`:''}${baseProfile.foot?` · ${esc(baseProfile.foot)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v" id="playerMarket">불러오는 중</div></div></div><div class="dtitle">시즌별 기록 · ${esc(LEAGUE_NAME.get(d.league)||d.league)}</div><div id="playerStatsFast">${playerRowsHtml(compose(),d,true)}</div><div class="player-source" id="playerSourceStatus">ESPN Core · ESPN 선수 페이지 · Transfermarkt를 동시에 확인합니다. 한 경로가 실패해도 다른 경로의 값은 유지합니다.</div>`;
+ if(!p.id){$('#playerStatsFast').innerHTML='<div class="compact-empty">선수 ID가 없어 ESPN 시즌 기록을 직접 연결하지 못했습니다.</div>';const mv=await fetchMarketValue(p.name,team.name||'');if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent=formatEuroMarket(mv.value)}return}
  const profileP=coreAthleteProfile(d.league,p.id).then(profile=>{if(seq!==playerLoadSeq)return null;const ath=profile?.athlete||profile||{},img=ath?.headshot?.href||ath?.headshot||'',age=ath?.age||'',foot=ath?.preferredFoot||'';const av=document.querySelector('#playerCardBody .player-avatar');if(av&&img)av.innerHTML=`<img src="${esc(img)}" alt="">`;const meta=document.querySelector('#playerCardBody .player-meta');if(meta)meta.innerHTML=`${esc(team.name||'')} · ${esc(p.pos||ath?.position?.abbreviation||'포지션 미표기')} · ${esc(roleTxt)}${age?` · ${esc(age)}세`:''}${foot?` · ${esc(foot)}`:''}`;return ath}).catch(()=>null);
  const coreP=corePlayerSeasonRows(d.league,p.id,years).then(rows=>{rows.forEach(r=>sources.core.set(r.year,r));render(true);return rows}).catch(()=>[]);
+ const htmlP=fetchEspnPlayerHtmlRows(p.id).then(rows=>{rows.forEach(r=>sources.html.set(r.year,r));render(true);return rows}).catch(()=>[]);
  const marketP=fetchMarketValue(p.name,team.name||'').then(async mv=>{if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent=formatEuroMarket(mv.value)}if(!mv.tmId)return[];const stats=await fetchTransfermarktStats(mv.tmId),tmByYear=new Map();for(const x of stats){if(!leagueCompetitionMatch(d.league,x?.competitionName||x?.competition_name||x?.competition?.name))continue;const y=tmSeasonYear(x);if(!y)continue;tmByYear.set(y,{year:y,apps:statInt(x?.appearances??x?.apps),goals:statInt(x?.goals),assists:statInt(x?.assists)})}sources.tm=tmByYear;render(true);return stats}).catch(()=>{if(seq===playerLoadSeq){const el=document.getElementById('playerMarket');if(el)el.textContent='미제공'}return[]});
  const siteP=coreP.then(rows=>sitePlayerSeasonRows(d.league,p.id,years,rows)).then(rows=>{rows.forEach(r=>sources.site.set(r.year,r));render(false);return rows}).catch(()=>[]);
- const [ath]=await Promise.all([profileP,coreP,marketP,siteP]);if(seq!==playerLoadSeq)return;const finalRows=compose(),profile=ath||baseProfile||{};savePlayerSeasonCache(d.league,p.id,finalRows,profile);render(false);const st=document.getElementById('playerSourceStatus');if(st)st.textContent='출장·선발·득점·도움은 ESPN Core/ESPN 선수 통계와 Transfermarkt 공개 기록을 교차 사용합니다. 한 소스가 실패해도 다른 소스의 값은 유지합니다.'
+ const [ath]=await Promise.all([profileP,coreP,htmlP,marketP,siteP]);if(seq!==playerLoadSeq)return;const finalRows=compose(),profile=ath||baseProfile||{};if(finalRows.some(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null)))savePlayerSeasonCache(d.league,p.id,finalRows,profile);render(false);const st=document.getElementById('playerSourceStatus');if(st)st.textContent='출장·선발·득점·도움은 ESPN Core/ESPN 선수 페이지/Transfermarkt 공개 기록을 교차 사용합니다. 실제로 확인된 값만 표시합니다.'
 }
 function statsHtml(rows,teams){if(!rows?.length)return'<div class="empty">경기 통계 데이터 미제공</div>';return`<table class="stat-table"><tbody>${rows.map(r=>`<tr><td class="${r.percent?'pct':''}">${esc(r.home)}</td><td>${esc(r.label)}</td><td class="${r.percent?'pct':''}">${esc(r.away)}</td></tr>`).join('')}</tbody></table><div class="source-note">${esc(teams.home.name)} ← 통계 → ${esc(teams.away.name)}</div>`}
 function ymd2(d){return d.toISOString().slice(0,10).replaceAll('-','')}
@@ -665,9 +734,9 @@ function seasonWindow(league,year){if(CALENDAR_SEASON_LEAGUES.has(league))return
 function monthWindows(start,end){const out=[];let cur=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),1));while(cur<=end){const ms=new Date(Date.UTC(cur.getUTCFullYear(),cur.getUTCMonth(),1)),me=new Date(Date.UTC(cur.getUTCFullYear(),cur.getUTCMonth()+1,0));out.push([ms<start?start:ms,me>end?end:me]);cur=new Date(Date.UTC(cur.getUTCFullYear(),cur.getUTCMonth()+1,1))}return out}
 function primaryOfficial(officials){if(!officials?.length)return null;return officials.find(o=>/^(referee|주심)$/i.test(String(o.role||'').trim()))||officials.find(o=>/referee|주심/i.test(o.role||'')&&!/assistant|fourth|var/i.test(o.role||''))||officials[0]}
 function cardCountsFromSummary(summary,teams){const rows=parseMatchStats(summary,teams),find=(label,side)=>{const r=rows.find(x=>x.label===label),n=statNumeric(r?.[side]);return n};const hy=find('옐로카드','home'),ay=find('옐로카드','away'),hr=find('레드카드','home'),ar=find('레드카드','away');if([hy,ay,hr,ar].some(v=>v!==null))return{yellow:(hy||0)+(ay||0),red:(hr||0)+(ar||0)};const events=parseEspnTimeline(summary),seen=new Set();let yellow=0,red=0;for(const e of events){const text=String(e.text||''),kind=/second yellow|red card|레드/i.test(text)?'R':/yellow card|옐로/i.test(text)?'Y':'';if(!kind)continue;const player=(text.match(/(?:Yellow Card|Red Card)\s+([^,(]+)/i)?.[1]||text).trim().toLowerCase(),key=`${e.time}|${kind}|${player}`;if(seen.has(key))continue;seen.add(key);if(kind==='R')red++;else yellow++}return{yellow,red}}
-function refStoreKey(league,year,name){return`soccerRefereeSeasonV7:${league}:${year}:${roleKey(name)}`}
-function readRefSeasonCache(league,year,name){try{const raw=localStorage.getItem(refStoreKey(league,year,name));if(!raw)return null;const x=JSON.parse(raw),age=Date.now()-(x.savedAt||0),isOld=CALENDAR_SEASON_LEAGUES.has(league)?year<new Date().getFullYear():year<new Date().getFullYear()-1;if(isOld||age<12*3600000)return x}catch(e){}return null}
-function saveRefSeasonCache(league,year,name,x){try{localStorage.setItem(refStoreKey(league,year,name),JSON.stringify({...x,savedAt:Date.now()}))}catch(e){}}
+function refStoreKey(league,year,name){return`soccerRefereeSeasonV9:${league}:${year}:${roleKey(name)}`}
+function readRefSeasonCache(league,year,name){try{const raw=localStorage.getItem(refStoreKey(league,year,name));if(!raw)return null;const x=JSON.parse(raw);return x?.schema===9?x:null}catch(e){return null}}
+function saveRefSeasonCache(league,year,name,x){try{localStorage.setItem(refStoreKey(league,year,name),JSON.stringify({...x,schema:9,savedAt:Date.now()}))}catch(e){}}
 async function coreOfficials(league,eventId){
  const key=`${league}|${eventId}`;if(state.officialEventCache.has(key))return state.officialEventCache.get(key);
  try{const raw=localStorage.getItem(`official:v2:${key}`);if(raw){const x=JSON.parse(raw);state.officialEventCache.set(key,x);return x}}catch(e){}
@@ -680,29 +749,18 @@ function embeddedEventOfficials(ev){
  const c=ev?.competitions?.[0]||{},arr=c?.officials||[];
  return arr.map(o=>({name:o?.displayName||o?.fullName||o?.official?.displayName||'',role:o?.position?.displayName||o?.position?.name||o?.type?.text||o?.role||''})).filter(x=>x.name)
 }
-async function buildRefereeSeason(league,year,name,onProgress){
- const cache=readRefSeasonCache(league,year,name);if(cache)return cache;
- const events=await seasonEvents(league,year),target=roleKey(name),candidates=[],fallback=[],total=events.length;let scanned=0,failed=0;
- // scoreboard에 officials가 있으면 즉시 사용하고, 없는 경기만 Core officials 조회
- for(let i=0;i<events.length;i+=48){
-  const batch=events.slice(i,i+48),rows=await Promise.all(batch.map(async ev=>{
-   const embedded=embeddedEventOfficials(ev);if(embedded.length)return{ev,list:embedded,embedded:true};
-   const off=await coreOfficials(league,ev.id);if(!off)return{ev,failed:true};
-   return{ev,list:parseCoreOfficials(off)}
-  }));
-  for(const row of rows){scanned++;if(row.failed){failed++;fallback.push(row.ev);continue}const primary=primaryOfficial(row.list||[]);if(primary&&roleKey(primary.name)===target)candidates.push(row.ev);else if(!(row.list||[]).length)fallback.push(row.ev)}
-  if(onProgress)onProgress({phase:'officials',year,scanned,total,found:candidates.length,failed})
- }
- // 카드 집계는 찾은 경기만 먼저 처리해 화면을 최대한 빨리 완성
- const matches=[];for(let i=0;i<candidates.length;i+=16){
-  const batch=candidates.slice(i,i+16),rows=await Promise.all(batch.map(async ev=>{try{const sum=(await fetchSummary(ev.id,league)).data;if(!sum)return null;const teams=summaryTeams(sum,ev),cards=cardCountsFromSummary(sum,teams);return{date:ev.date,home:teams.home.name,away:teams.away.name,hs:teams.home.score,as:teams.away.score,yellow:cards.yellow,red:cards.red,eventId:String(ev.id)}}catch(e){return null}}));
-  for(const row of rows)if(row)matches.push(row);if(onProgress)onProgress({phase:'cards',year,done:Math.min(i+16,candidates.length),totalCards:candidates.length,found:candidates.length,scanned,total,failed})
- }
- // 실패/애매한 경기 검증은 소수일 때만 수행
- if(fallback.length&&fallback.length<=30){
-  for(let i=0;i<fallback.length;i+=12){const batch=fallback.slice(i,i+12),rows=await Promise.all(batch.map(async ev=>{try{const sum=(await fetchSummary(ev.id,league)).data;if(!sum)return null;const off=primaryOfficial(parseOfficials(sum));if(!off||roleKey(off.name)!==target)return null;const teams=summaryTeams(sum,ev),cards=cardCountsFromSummary(sum,teams);return{date:ev.date,home:teams.home.name,away:teams.away.name,hs:teams.home.score,as:teams.away.score,yellow:cards.yellow,red:cards.red,eventId:String(ev.id)}}catch(e){return null}}));for(const row of rows)if(row&&!matches.some(x=>x.eventId===row.eventId))matches.push(row);if(onProgress)onProgress({phase:'verify',year,done:Math.min(i+12,fallback.length),totalVerify:fallback.length,found:matches.length,scanned,total,failed})}
- }
- matches.sort((a,b)=>new Date(b.date)-new Date(a.date));const res={league,year,name,matches,scanned,total,failed,found:matches.length};saveRefSeasonCache(league,year,name,res);return res
+async function fetchSummaryForRef(eventId,league){
+ const cands=[league,'all'].filter((v,i,a)=>v&&a.indexOf(v)===i);for(let attempt=0;attempt<2;attempt++){for(const lg of cands){try{const u=`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/summary?event=${encodeURIComponent(eventId)}`,d=await fetchJson(u,{fresh:attempt>0,timeoutMs:7000});if(d&&Object.keys(d).length)return{data:d,league:lg}}catch(e){}}}return{data:null,league}}
+async function buildRefereeSeason(league,year,name,onProgress,isCurrent=false){
+ const sessionKey=`${league}|${year}|${roleKey(name)}|${isCurrent?'current':'past'}`;if(state.refCache.has(sessionKey))return state.refCache.get(sessionKey);
+ const events=await seasonEvents(league,year),target=roleKey(name),saved=readRefSeasonCache(league,year,name),allIds=events.map(e=>String(e.id));
+ if(!isCurrent&&saved?.complete===true){state.refCache.set(sessionKey,saved);return saved}
+ const processed=new Set(isCurrent&&saved?.processedEventIds? saved.processedEventIds:[]),matchMap=new Map((isCurrent&&saved?.matches?saved.matches:[]).map(x=>[String(x.eventId),x])),todo=isCurrent?events.filter(e=>!processed.has(String(e.id))):events;
+ let checked=events.length-todo.length,failed=0;
+ for(let i=0;i<todo.length;i+=8){const batch=todo.slice(i,i+8),rows=await Promise.all(batch.map(async ev=>{const sw=await fetchSummaryForRef(ev.id,league),sum=sw.data;if(!sum)return{ev,failed:true};let officials=parseOfficials(sum);if(!officials.length){const cor=await coreOfficials(league,ev.id);officials=parseCoreOfficials(cor)}if(!officials.length)officials=embeddedEventOfficials(ev);const primary=primaryOfficial(officials);if(!primary||roleKey(primary.name)!==target)return{ev,matched:false};const teams=summaryTeams(sum,ev),cards=cardCountsFromSummary(sum,teams);return{ev,matched:true,row:{date:ev.date,home:teams.home.name,away:teams.away.name,hs:teams.home.score,as:teams.away.score,yellow:cards.yellow,red:cards.red,eventId:String(ev.id)}}}));
+  for(const r of rows){if(r.failed){failed++;continue}processed.add(String(r.ev.id));if(r.matched&&r.row)matchMap.set(String(r.ev.id),r.row)}checked=processed.size;if(onProgress)onProgress({phase:'fullscan',year,scanned:checked,total:events.length,found:matchMap.size,failed})}
+ const matches=[...matchMap.values()].sort((a,b)=>new Date(b.date)-new Date(a.date)),complete=processed.size===allIds.length,res={league,year,name,matches,scanned:processed.size,total:events.length,failed,found:matches.length,processedEventIds:[...processed],complete};
+ saveRefSeasonCache(league,year,name,res);state.refCache.set(sessionKey,res);return res
 }
 function refSeasonCompareHtml(current,previous){
  if(!current||!previous||current.n<5||previous.n<5)return'<div class="ref-tendency"><b>시즌 비교</b> · 표본이 부족해 비교 평가는 보류합니다.</div>';
@@ -715,117 +773,43 @@ function seasonName(league,year){return CALENDAR_SEASON_LEAGUES.has(league)?`${y
 function refCardTendency(stats){if(!stats||stats.n<5)return'판단 보류';if(stats.avgTotal>=5)return'카드가 많은 편';if(stats.avgTotal>=4)return'다소 엄격한 편';if(stats.avgTotal>=3)return'보통';return'카드가 적은 편'}
 function refSeasonHtml(title,year,stats,index,league){const sn=seasonName(league,year);if(!stats.n)return`<div class="season-ref-block"><div class="season-ref-head"><b>${esc(title)}</b><span>${esc(sn)}</span></div><div class="compact-empty">해당 시즌에 확인된 주심 경기 없음</div><div class="sample-note">리그 완료경기 ${index?.scanned||0}/${index?.total||0}건에서 주심 배정을 확인</div></div>`;return`<div class="season-ref-block"><div class="season-ref-head"><b>${esc(title)}</b><span>${esc(sn)}</span></div><div class="ref-summary"><div class="metric"><span class="k">주심 경기</span><span class="v">${stats.n}</span></div><div class="metric"><span class="k">평균 옐로</span><span class="v">${stats.avgYellow.toFixed(2)}</span></div><div class="metric"><span class="k">평균 레드</span><span class="v">${stats.avgRed.toFixed(2)}</span></div><div class="metric"><span class="k">평균 총카드</span><span class="v">${stats.avgTotal.toFixed(2)}</span></div></div><div class="ref-tendency"><b>${esc(title)} 카드 성향</b> · ${esc(refCardTendency(stats))}${stats.n<5?' · 5경기 미만이라 평가는 보류합니다.':''}</div><div class="sample-note">리그 완료경기 ${index.scanned}/${index.total}건 주심 배정 확인${index.failed?` · 확인 실패 ${index.failed}건`:''}</div></div>`}
 function refLoadingHtml(title,year,league,msg='준비 중…'){return`<div class="season-ref-block"><div class="season-ref-head"><b>${esc(title)}</b><span>${esc(seasonName(league,year))}</span></div><div class="compact-empty">${esc(msg)}</div></div>`}
-async function showRefereeHistory(name,targetId){const box=document.getElementById(targetId);if(!box||!state.currentDetail?.data)return;const d=state.currentDetail.data;if(!d.league||d.league==='all'){box.innerHTML='<div class="empty">리그를 식별할 수 없어 시즌 심판 통계를 만들 수 없습니다.</div>';return}const currentYear=d.seasonYear,previousYear=currentYear-1,cutoff=new Date(d.ev.date),results={};box.innerHTML=`<div id="ref-current-slot">${refLoadingHtml('올 시즌',currentYear,d.league,'주심 배정 확인 중…')}</div><div id="ref-prev-slot">${refLoadingHtml('지난 시즌',previousYear,d.league,'주심 배정 확인 중…')}</div><div class="sample-note">주심 배정 전용 데이터부터 빠르게 확인하고, 해당 주심 경기만 카드 통계를 추가로 읽습니다.</div>`;
- const renderRecent=()=>{if(!results.current&&!results.previous)return;const cs=results.current?refSeasonStats(results.current,name,cutoff):{matches:[],n:0},ps=results.previous?refSeasonStats(results.previous,name,null):{matches:[],n:0},recent=[...(cs.matches||[]),...(ps.matches||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10),old=document.getElementById('ref-recent-slot'),compare=(results.current&&results.previous)?refSeasonCompareHtml(cs,ps):'';const html=`<div id="ref-recent-slot">${compare}<div class="dsub" style="margin-top:10px">최근 주심 경기 · 최대 10경기</div>${recent.length?recent.map(x=>`<div class="ref-match"><div class="ref-match-head"><span>${esc(shortDate(x.date))}</span><span>${esc(x.hs??'-')} : ${esc(x.as??'-')}</span></div><b>${esc(x.home)} vs ${esc(x.away)}</b><div class="ref-cards"><span class="yc">옐로 ${x.yellow}</span><span class="rc">레드 ${x.red}</span></div></div>`).join(''):'<div class="compact-empty">최근 주심 경기 없음</div>'}</div>`;if(old)old.outerHTML=html;else box.insertAdjacentHTML('beforeend',html)};
- const run=async(kind,title,year,slotId)=>{const slot=document.getElementById(slotId),update=p=>{if(!slot)return;if(p.phase==='officials')slot.innerHTML=refLoadingHtml(title,year,d.league,`주심 배정 ${p.scanned}/${p.total} · 일치 ${p.found}경기`);else if(p.phase==='verify')slot.innerHTML=refLoadingHtml(title,year,d.league,`누락 배정 검증 ${p.done}/${p.totalVerify} · 일치 ${p.found}경기`);else slot.innerHTML=refLoadingHtml(title,year,d.league,`카드 집계 ${p.done}/${p.totalCards}`)};try{const idx=await buildRefereeSeason(d.league,year,name,update);results[kind]=idx;const stats=refSeasonStats(idx,name,kind==='current'?cutoff:null);if(slot)slot.innerHTML=refSeasonHtml(title,year,stats,idx,d.league);renderRecent()}catch(e){if(slot)slot.innerHTML=`<div class="badbox">${esc(title)} 심판 기록 계산 실패: ${esc(e.message)}</div>`}};
- await Promise.all([run('current','올 시즌',currentYear,'ref-current-slot'),run('previous','지난 시즌',previousYear,'ref-prev-slot')])}
+async function showRefereeHistory(name,targetId){
+ const box=document.getElementById(targetId);if(!box||!state.currentDetail?.data)return;const d=state.currentDetail.data;if(!d.league||d.league==='all'){box.innerHTML='<div class="empty">리그를 식별할 수 없어 시즌 심판 통계를 만들 수 없습니다.</div>';return}
+ const currentYear=d.seasonYear,previousYear=currentYear-1,cutoff=new Date(d.ev.date),viewKey=`${d.league}|${currentYear}|${roleKey(name)}|${String(d.ev.id||'')}`;
+ if(state.refereeViewCache.has(viewKey)){box.innerHTML=state.refereeViewCache.get(viewKey);return}
+ const results={};box.innerHTML=`<div id="ref-current-slot">${refLoadingHtml('올 시즌',currentYear,d.league,'시즌 전체 경기 전수 확인 중…')}</div><div id="ref-prev-slot">${refLoadingHtml('지난 시즌',previousYear,d.league,'시즌 전체 경기 전수 확인 중…')}</div><div class="sample-note">정확도를 우선해 완료 경기 전체를 확인합니다. 한 번 완료된 결과는 이 화면에서 다시 읽지 않습니다.</div>`;
+ const renderRecent=()=>{if(!results.current&&!results.previous)return;const cs=results.current?refSeasonStats(results.current,name,cutoff):{matches:[],n:0},ps=results.previous?refSeasonStats(results.previous,name,null):{matches:[],n:0},recent=[...(cs.matches||[]),...(ps.matches||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10),old=document.getElementById('ref-recent-slot'),compare=(results.current&&results.previous)?refSeasonCompareHtml(cs,ps):'',html=`<div id="ref-recent-slot">${compare}<div class="dsub" style="margin-top:10px">최근 주심 경기 · 최대 10경기</div>${recent.length?recent.map(x=>`<div class="ref-match"><div class="ref-match-head"><span>${esc(shortDate(x.date))}</span><span>${esc(x.hs??'-')} : ${esc(x.as??'-')}</span></div><b>${esc(x.home)} vs ${esc(x.away)}</b><div class="ref-cards"><span class="yc">옐로 ${x.yellow}</span><span class="rc">레드 ${x.red}</span></div></div>`).join(''):'<div class="compact-empty">최근 주심 경기 없음</div>'}</div>`;if(old)old.outerHTML=html;else box.insertAdjacentHTML('beforeend',html)};
+ const run=async(kind,title,year,slotId,isCurrent)=>{const slot=document.getElementById(slotId),update=p=>{if(slot&&p.phase==='fullscan')slot.innerHTML=refLoadingHtml(title,year,d.league,`전수 확인 ${p.scanned}/${p.total} · 주심 일치 ${p.found}경기${p.failed?` · 재확인 필요 ${p.failed}`:''}`)};try{const idx=await buildRefereeSeason(d.league,year,name,update,isCurrent);results[kind]=idx;const stats=refSeasonStats(idx,name,isCurrent?cutoff:null);if(slot)slot.innerHTML=refSeasonHtml(title,year,stats,idx,d.league);renderRecent()}catch(e){if(slot)slot.innerHTML=`<div class="badbox">${esc(title)} 심판 기록 계산 실패: ${esc(e.message)}</div>`}};
+ await Promise.all([run('current','올 시즌',currentYear,'ref-current-slot',true),run('previous','지난 시즌',previousYear,'ref-prev-slot',false)]);state.refereeViewCache.set(viewKey,box.innerHTML)
+}
 function lineupRoleCounts(d,side){
  const starters=(d.lineups?.[side]||[]).filter(x=>x.starter),roles=d.lineupRoles?.[side]||{},out={main:0,rotation:0,backup:0,total:starters.length};
  for(const p of starters){const r=roles[roleKey(p.name)]?.role||'rotation';out[r]=(out[r]||0)+1}return out
 }
 function fmtMaybe(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d):'-'}
+function wdlOf(f){const g=f?.games||[];return{w:g.filter(x=>x.result==='W').length,d:g.filter(x=>x.result==='D').length,l:g.filter(x=>x.result==='L').length,gf:g.reduce((s,x)=>s+(x.gf||0),0),ga:g.reduce((s,x)=>s+(x.ga||0),0),n:g.length}}
+function detailItem(title,summary,c,conclusion,evidence,interpretation,impact,final){return{title,summary,c,detail:{conclusion,evidence,interpretation,impact,final}}}
 function makePrematchAnalysis(d){
- const out=[],h=d.teams.home,a=d.teams.away,h5=d.homeForm5,a5=d.awayForm5,h10=d.homeForm10,a10=d.awayForm10;
- const hn=h5?.games?.length||0,an=a5?.games?.length||0,h10n=h10?.games?.length||0,a10n=a10?.games?.length||0;
-
- // 1. 표본 / 흐름
- if(hn>=5&&an>=5){
-   const ppgDiff=(h5.ppg||0)-(a5.ppg||0),goalDiff=((h5.gf||0)-(h5.ga||0))/hn-(((a5.gf||0)-(a5.ga||0))/an);
-   const hwdl={w:h5.games.filter(g=>g.result==='W').length,d:h5.games.filter(g=>g.result==='D').length,l:h5.games.filter(g=>g.result==='L').length},awdl={w:a5.games.filter(g=>g.result==='W').length,d:a5.games.filter(g=>g.result==='D').length,l:a5.games.filter(g=>g.result==='L').length};let text=`리그 최근 5경기 기준 ${h.name} ${hwdl.w}승 ${hwdl.d}무 ${hwdl.l}패, ${a.name} ${awdl.w}승 ${awdl.d}무 ${awdl.l}패. `;
-   if(ppgDiff>.45)text+=`${h.name}의 최근 결과 흐름이 우위입니다.`;
-   else if(ppgDiff<-.45)text+=`${a.name}의 최근 결과 흐름이 우위입니다.`;
-   else text+='승점 흐름만 보면 큰 격차는 아닙니다.';
-   if(Number.isFinite(goalDiff)&&Math.abs(goalDiff)>.65)text+=goalDiff>0?` 득실 내용도 ${h.name} 쪽이 더 안정적입니다.`:` 득실 내용은 ${a.name} 쪽이 더 안정적입니다.`;
-   out.push({title:'전력 흐름',text,c:Math.abs(ppgDiff)>.45?'strong':''});
- }else{
-   out.push({title:'전력 흐름',text:`올 시즌 표본이 아직 작습니다. 최근 리그 기록은 ${h.name} ${hn}경기, ${a.name} ${an}경기만 확보돼 올 시즌 수치만으로 우열을 단정하지 않습니다.`,c:'warn'});
- }
-
- // 2. 홈/원정
- const hs=d.homeSplit,as=d.awaySplit;
- if(hs?.n&&as?.n){
-   let text=`${h.name} 홈 ${hs.n}경기 ${fmt1(hs.gfpg)}득점/${fmt1(hs.gapg)}실점, ${a.name} 원정 ${as.n}경기 ${fmt1(as.gfpg)}득점/${fmt1(as.gapg)}실점.`;
-   if(hs.n<3||as.n<3)text+=' 표본이 3경기 미만인 쪽이 있어 방향성 참고만 하는 것이 좋습니다.';
-   else{
-     const homeAttack=(hs.gfpg+as.gapg)/2,awayAttack=(as.gfpg+hs.gapg)/2;
-     if(homeAttack-awayAttack>.45)text+=` 홈팀 쪽 득점 환경이 상대적으로 낫습니다.`;
-     else if(awayAttack-homeAttack>.45)text+=` 원정팀 쪽 득점 환경이 상대적으로 낫습니다.`;
-     else text+=' 홈/원정 득실만으로는 한쪽으로 크게 기울지 않습니다.';
-   }
-   out.push({title:'홈/원정 상성',text,c:(hs.n<3||as.n<3)?'warn':''});
- }
-
- // 3. 라인업
- const homeStarters=(d.lineups?.home||[]).filter(x=>x.starter).length,awayStarters=(d.lineups?.away||[]).filter(x=>x.starter).length;
- if(homeStarters>=7&&awayStarters>=7){
-   const src=d.lineupSource==='espn'?'ESPN 제공 선발 명단':'외부 제공 라인업';
-   let text=`${src}이 확인됐습니다.`;
-   if(d.lineupRoles){
-     const hc=lineupRoleCounts(d,'home'),ac=lineupRoleCounts(d,'away');
-     text+=` 주력 분류는 ${h.name} ${hc.main}명, ${a.name} ${ac.main}명`;
-     if(hc.rotation||ac.rotation)text+=`, 로테이션은 ${h.name} ${hc.rotation}명, ${a.name} ${ac.rotation}명`;
-     text+='입니다.';
-     if(hc.main-ac.main>=2)text+=` 주력 비중은 ${h.name} 쪽이 높습니다.`;
-     else if(ac.main-hc.main>=2)text+=` 주력 비중은 ${a.name} 쪽이 높습니다.`;
-   }else text+=' 선수별 주력/로테이션 여부는 계산 중입니다.';
-   out.push({title:'라인업 영향',text,c:d.lineupSource==='espn'?'strong':'warn'});
- }else{
-   out.push({title:'라인업 영향',text:'양 팀 선발 명단이 충분히 확보되지 않았습니다. 선발 발표 전이라면 라인업 변수는 분석에서 제외합니다.',c:'warn'});
- }
-
- // 4. 결장
- const hi=d.injuries?.home,ai=d.injuries?.away,hic=hi?.items?.length||0,aic=ai?.items?.length||0;
- if(hi?.available||ai?.available){
-   let text=`확인된 결장/부상은 ${h.name} ${hic}명, ${a.name} ${aic}명입니다.`;
-   if(hic-aic>=2)text+=` 숫자상 ${h.name}의 결장 부담이 더 큽니다.`;
-   else if(aic-hic>=2)text+=` 숫자상 ${a.name}의 결장 부담이 더 큽니다.`;
-   else text+=' 숫자만으로 큰 격차는 없습니다.';
-   out.push({title:'결장 변수',text,c:(Math.abs(hic-aic)>=2)?'warn':''});
- }
-
- // 5. H2H
- if(d.h2hLoaded&&d.h2h?.length){
-   const recent=d.h2h.slice(0,5),avg=recent.reduce((z,x)=>z+(x.gf||0)+(x.ga||0),0)/recent.length;
-   const withOu=recent.filter(x=>x.odds&&Number.isFinite(Number(x.odds.ou)));
-   let text=`확인된 전체 H2H는 ${d.h2h.length}경기이며 최근 5경기 평균 총득점은 ${avg.toFixed(2)}골입니다.`;
-   if(withOu.length>=3){const over=withOu.filter(x=>((x.gf||0)+(x.ga||0))>Number(x.odds.ou)).length;text+=` 최근 H2H 중 O/U 기준점이 남아 있는 ${withOu.length}경기에서는 오버 ${over}회, 언더 ${withOu.length-over}회였습니다.`}
-   out.push({title:'맞대결 / 시장 기준',text,c:''});
- }
-
- // 6. 심판/날씨/배당
- const primary=primaryOfficial(d.officials||[]);
- let env=[];
- if(primary)env.push(`주심 ${primary.name}`);
- if(d.weather?.ok!==false){
-   const temp=parseFloat(String(d.weather?.temp||'')),wind=parseFloat(String(d.weather?.wind||'')),rain=parseFloat(String(d.weather?.rain||''));
-   if(Number.isFinite(wind)&&wind>=25)env.push(`강한 바람 ${d.weather.wind}`);
-   if(Number.isFinite(rain)&&rain>0)env.push(`강수 ${d.weather.rain}`);
- }
- const o=d.odds?.[0];
- if(o&&Number.isFinite(Number(oddsText(o.home)))&&Number.isFinite(Number(oddsText(o.away)))){
-   const hd=Number(oddsText(o.home)),ad=Number(oddsText(o.away));
-   if(hd+0.35<ad)env.push(`시장 배당은 ${h.name} 우세`);
-   else if(ad+0.35<hd)env.push(`시장 배당은 ${a.name} 우세`);
-   else env.push('시장 배당은 박빙');
- }
- if(env.length)out.push({title:'경기 외 변수',text:env.join(' · ')+'.',c:''});
-
- // 7. 최종 그림
- let edge=0;
- if(hn>=5&&an>=5)edge+=(h5.ppg-a5.ppg)*1.2;
- if(hs?.n>=3&&as?.n>=3)edge+=((hs.gfpg+as.gapg)-(as.gfpg+hs.gapg))*.45;
- if(d.homeStanding&&d.awayStanding)edge+=((d.homeStanding.gd||0)/(Math.max(d.homeStanding.gp||1,1))-(d.awayStanding.gd||0)/(Math.max(d.awayStanding.gp||1,1)))*.35;
- let final='현재 확보된 자료만으로는 한쪽을 강하게 단정하기 어렵습니다.';
- if(edge>.65)final=`전체 흐름은 ${h.name} 쪽으로 조금 더 기웁니다. 다만 표본이 작은 항목은 확신 근거로 사용하지 않는 것이 좋습니다.`;
- else if(edge<-.65)final=`전체 흐름은 ${a.name} 쪽으로 조금 더 기웁니다. 다만 표본이 작은 항목은 확신 근거로 사용하지 않는 것이 좋습니다.`;
- const totalVals=[hs?.gfpg,hs?.gapg,as?.gfpg,as?.gapg];
- if(totalVals.every(Number.isFinite)){const total=(hs.gfpg+as.gapg+as.gfpg+hs.gapg)/2;if(total>=2.9)final+=` 득점 환경은 높은 쪽입니다.`;else if(total<=2.1)final+=` 득점 환경은 낮은 쪽입니다.`}
- return{sections:out,final}
+ const out=[],h=d.teams.home,a=d.teams.away,h5=d.homeForm5,a5=d.awayForm5,h10=d.homeForm10,a10=d.awayForm10,hw=wdlOf(h5),aw=wdlOf(a5),h10w=wdlOf(h10),a10w=wdlOf(a10);
+ if(hw.n&&aw.n){const diff=(h5?.ppg||0)-(a5?.ppg||0),gd=((h5?.gfpg||0)-(h5?.gapg||0))-((a5?.gfpg||0)-(a5?.gapg||0)),leader=diff>.45?h.name:diff<-.45?a.name:'';out.push(detailItem('전력 흐름',leader?`최근 결과 흐름은 ${leader} 쪽이 우위입니다.`:'최근 결과 흐름은 큰 격차가 없습니다.',Math.abs(diff)>.45?'strong':'',leader?`${leader}가 최근 리그 경기에서 더 나은 승점 흐름을 보였습니다.`:'최근 5경기만으로는 승점 흐름 차이가 크지 않습니다.',[`${h.name} 최근 ${hw.n}경기 · ${hw.w}승 ${hw.d}무 ${hw.l}패 · ${hw.gf}득점 ${hw.ga}실점 · 경기당 승점 ${fmtMaybe(h5?.ppg)}`,`${a.name} 최근 ${aw.n}경기 · ${aw.w}승 ${aw.d}무 ${aw.l}패 · ${aw.gf}득점 ${aw.ga}실점 · 경기당 승점 ${fmtMaybe(a5?.ppg)}`,h10w.n>5&&a10w.n>5?`최근 10경기 · ${h.name} ${h10w.w}승 ${h10w.d}무 ${h10w.l}패 / ${a.name} ${a10w.w}승 ${a10w.d}무 ${a10w.l}패`:'최근 10경기 표본은 아직 충분하지 않습니다.'],Math.abs(gd)>.45?(gd>0?`${h.name}가 득점과 실점의 균형에서도 상대적으로 낫습니다.`:`${a.name}가 득점과 실점의 균형에서도 상대적으로 낫습니다.`):'득실 흐름은 한쪽으로 크게 벌어지지 않습니다.',leader?`승패 방향을 볼 때 ${leader} 쪽에 가점을 줄 수 있지만, 최근 5경기 하나만으로 결론을 고정하지 않습니다.`:'승패 방향에서 최근 흐름만으로 큰 가점을 주기 어렵습니다.',leader?`최근 흐름 우세: ${leader}`:'최근 흐름: 박빙'))}
+ const hs=d.homeSplit,as=d.awaySplit;if(hs?.gp&&as?.gp){const homeAttack=(hs.gfpg+as.gapg)/2,awayAttack=(as.gfpg+hs.gapg)/2,leader=homeAttack-awayAttack>.45?h.name:awayAttack-homeAttack>.45?a.name:'';out.push(detailItem('홈/원정 상성',leader?`홈·원정 득실 조합은 ${leader} 쪽이 낫습니다.`:'홈·원정 득실 조합은 큰 차이가 없습니다.',(hs.gp<3||as.gp<3)?'warn':'',`홈팀의 홈 기록과 원정팀의 원정 기록을 따로 떼어 비교했습니다.`,[`${h.name} 홈 ${hs.gp}경기 · 경기당 ${fmtMaybe(hs.gfpg)}득점 / ${fmtMaybe(hs.gapg)}실점 · 경기당 승점 ${fmtMaybe(hs.ppg)}`,`${a.name} 원정 ${as.gp}경기 · 경기당 ${fmtMaybe(as.gfpg)}득점 / ${fmtMaybe(as.gapg)}실점 · 경기당 승점 ${fmtMaybe(as.ppg)}`,`상대 수비를 함께 반영한 예상 득점 환경 · ${h.name} ${fmtMaybe(homeAttack)} / ${a.name} ${fmtMaybe(awayAttack)}`],hs.gp<3||as.gp<3?'한쪽 표본이 3경기 미만이라 방향만 참고하는 편이 안전합니다.':leader?`${leader}가 장소 조건까지 반영했을 때 조금 더 유리한 득점 환경입니다.`:'장소 조건까지 반영해도 우열이 뚜렷하지 않습니다.',leader?`승패·핸디캡 판단에서는 ${leader} 쪽에 보조 근거가 됩니다. 총득점 판단은 양 팀의 득점·실점 평균을 함께 봐야 합니다.`:'홈/원정 수치만으로 승패나 핸디 방향을 강하게 잡기 어렵습니다.',leader?`장소 상성 우세: ${leader}`:'홈/원정 상성: 박빙'))}
+ const homeStarters=(d.lineups?.home||[]).filter(x=>x.starter),awayStarters=(d.lineups?.away||[]).filter(x=>x.starter);if(homeStarters.length>=7&&awayStarters.length>=7){const hc=lineupRoleCounts(d,'home'),ac=lineupRoleCounts(d,'away'),hm=missingMainPlayers(d,'home'),am=missingMainPlayers(d,'away'),leader=hc.main-ac.main>=2?h.name:ac.main-hc.main>=2?a.name:'';out.push(detailItem('라인업 영향',leader?`확인된 선발 구성은 ${leader} 쪽 주력 비중이 더 높습니다.`:'양 팀 선발의 주력 비중은 크게 벌어지지 않습니다.',d.lineupSource==='espn'?'strong':'warn',`선발 명단과 최근/지난 시즌 선발 빈도를 이용해 주력·로테이션·백업 비중을 비교했습니다.`,[`${h.name} · 주력 ${hc.main} / 로테이션 ${hc.rotation} / 백업 ${hc.backup}`,`${a.name} · 주력 ${ac.main} / 로테이션 ${ac.rotation} / 백업 ${ac.backup}`,hm.length?`${h.name} 선발 명단에서 빠진 주력 후보: ${hm.join(', ')}`:`${h.name}는 확인된 주력 누락이 크지 않습니다.`,am.length?`${a.name} 선발 명단에서 빠진 주력 후보: ${am.join(', ')}`:`${a.name}는 확인된 주력 누락이 크지 않습니다.`],d.lineupSource==='espn'?'ESPN 공식 선발 명단을 기준으로 해 신뢰도가 높은 편입니다.':'외부 라인업이 섞여 있어 공식 발표 여부를 함께 확인하는 것이 좋습니다.',leader?`${leader} 쪽 선발 완성도에 가점을 줄 수 있습니다. 특히 핵심 공격수·센터백·골키퍼의 누락 여부는 승패와 총득점 모두에 직접 영향을 줍니다.`:'라인업만으로 한쪽에 강한 우위를 주기 어렵습니다.',leader?`라인업 우세: ${leader}`:'라인업: 큰 격차 없음'))}else out.push(detailItem('라인업 영향','공식 선발이 충분히 확보되지 않아 라인업 판단은 보류합니다.','warn','선발 발표 전이거나 라인업 데이터가 일부만 확인됐습니다.',[`${h.name} 확인 선발 ${homeStarters.length}명`,`${a.name} 확인 선발 ${awayStarters.length}명`],'선발이 완성되기 전에는 주력선수 결장 여부를 정확히 비교하기 어렵습니다.','라인업 변수는 현재 승패·핸디·총득점 판단에서 제외하는 편이 낫습니다.','라인업 판단 보류'));
+ const hi=d.injuries?.home,ai=d.injuries?.away,hic=hi?.items?.length||0,aic=ai?.items?.length||0;if(hi?.available||ai?.available){const burden=hic-aic>=2?h.name:aic-hic>=2?a.name:'';out.push(detailItem('결장 변수',burden?`${burden} 쪽 결장·부상 부담이 더 큽니다.`:'확인된 결장 숫자는 큰 차이가 없습니다.',Math.abs(hic-aic)>=2?'warn':'','공개된 부상/결장 목록과 라인업에서 빠진 주력 후보를 함께 확인했습니다.',[`${h.name} 확인 결장/부상 ${hic}명${hic?` · ${hi.items.slice(0,5).map(x=>x.name).join(', ')}`:''}`,`${a.name} 확인 결장/부상 ${aic}명${aic?` · ${ai.items.slice(0,5).map(x=>x.name).join(', ')}`:''}`],'단순 인원수보다 빠진 선수의 역할이 더 중요합니다. 주력선수 누락이면 숫자가 1명이어도 영향이 클 수 있습니다.',burden?`${burden}의 전력 평가를 낮추는 요소입니다. 다만 백업 선수 위주의 결장이라면 실제 영향은 제한적일 수 있습니다.`:'결장 숫자만으로 승패 방향을 크게 바꿀 정도의 격차는 확인되지 않습니다.',burden?`결장 부담: ${burden}`:'결장 변수: 큰 차이 없음'))}
+ if(d.h2hLoaded&&d.h2h?.length){const recent=d.h2h.slice(0,5),rw={w:recent.filter(x=>x.result==='W').length,d:recent.filter(x=>x.result==='D').length,l:recent.filter(x=>x.result==='L').length},avg=recent.reduce((z,x)=>z+(x.gf||0)+(x.ga||0),0)/recent.length,withOdds=recent.filter(x=>oddsHasValue(x.odds)),withOu=recent.filter(x=>x.odds&&Number.isFinite(Number(x.odds.ou))),over=withOu.filter(x=>(x.gf+x.ga)>Number(x.odds.ou)).length;out.push(detailItem('맞대결 / 시장 기준',`최근 맞대결 5경기 평균 총득점은 ${avg.toFixed(2)}골입니다.`,'',`ESPN에서 확인한 전체 맞대결과, 가능한 경기의 당시 배당 데이터를 함께 봅니다.`,[`전체 H2H ${d.h2h.length}경기 · 최근 5경기 기준 현재 홈팀 관점 ${rw.w}승 ${rw.d}무 ${rw.l}패`,`최근 5경기 평균 총득점 ${avg.toFixed(2)}골`,`최근 5경기 중 과거 배당 확인 ${withOdds.length}경기${withOu.length?` · O/U 확인 ${withOu.length}경기 · 오버 ${over} / 언더 ${withOu.length-over}`:''}`],'맞대결은 감독·선수 구성이 바뀌기 때문에 오래된 경기일수록 가중치를 낮춰 보는 것이 좋습니다. 과거 배당이 확인된 경우 시장이 당시 전력을 어떻게 평가했는지도 함께 볼 수 있습니다.','H2H는 독립적인 결정 근거라기보다 최근 전력 흐름과 시장 평가를 보조하는 자료로 사용하는 편이 좋습니다.',`H2H 최근 5경기 평균 총득점 ${avg.toFixed(2)}골`))}
+ const primary=primaryOfficial(d.officials||[]),o=d.odds?.[0],env=[];if(primary)env.push(`주심 ${primary.name}`);if(d.weather?.ok!==false){if(d.weather?.temp)env.push(`기온 ${d.weather.temp}`);if(d.weather?.rain&&d.weather.rain!=='-')env.push(`강수 ${d.weather.rain}`);if(d.weather?.wind)env.push(`바람 ${d.weather.wind}`)}if(o&&oddsHasValue(o))env.push(`1X2 ${h.name} ${oddsText(o.home)} / 무 ${oddsText(o.draw)} / ${a.name} ${oddsText(o.away)}`);if(env.length)out.push(detailItem('경기 외 변수',primary?`주심·날씨·시장 배당을 함께 확인했습니다.`:'날씨·시장 배당을 함께 확인했습니다.','',`전력 외에 경기 양상을 흔들 수 있는 요소를 따로 묶었습니다.`,env,`강풍·강수는 패스 정확도와 슈팅 효율을 떨어뜨릴 수 있고, 카드가 많은 주심은 경기 흐름을 끊거나 퇴장 위험을 높일 수 있습니다. 시장 배당은 전력 정보를 압축한 참고값으로 사용합니다.`,`이 영역은 다른 전력 지표와 방향이 같을 때 신뢰도를 높이는 보조 근거로 사용합니다.`,`외부 변수 ${env.length}개 확인`));
+ let edge=0;if(hw.n>=5&&aw.n>=5)edge+=(h5.ppg-a5.ppg)*1.2;if(hs?.gp>=3&&as?.gp>=3)edge+=((hs.gfpg+as.gapg)-(as.gfpg+hs.gapg))*.45;if(d.homeStanding&&d.awayStanding)edge+=((d.homeStanding.gd||0)/Math.max(d.homeStanding.gp||1,1)-(d.awayStanding.gd||0)/Math.max(d.awayStanding.gp||1,1))*.35;let final='현재 확보된 자료만으로는 한쪽을 강하게 단정하기 어렵습니다.';if(edge>.65)final=`전체 흐름은 ${h.name} 쪽으로 조금 더 기웁니다.`;else if(edge<-.65)final=`전체 흐름은 ${a.name} 쪽으로 조금 더 기웁니다.`;const totalVals=[hs?.gfpg,hs?.gapg,as?.gfpg,as?.gapg];if(totalVals.every(Number.isFinite)){const total=(hs.gfpg+as.gapg+as.gfpg+hs.gapg)/2;if(total>=2.9)final+=' 득점 환경은 높은 편입니다.';else if(total<=2.1)final+=' 득점 환경은 낮은 편입니다.'}return{sections:out,final,mode:'pre'}
 }
-function renderAnalysisPane(d){
- const h=d.teams.home,a=d.teams.away,pm=makePrematchAnalysis(d);
- $('#pane-analysis').innerHTML=`<div class="dcard"><div class="dtitle">경기 요약</div><div class="fs-strip"><span class="fs-chip">${esc(LEAGUE_NAME.get(d.league)||d.league||'대회')}</span><span class="fs-chip">${esc(kstDateTime(d.ev.date))}</span><span class="fs-chip">${esc(d.ev?.status?.type?.shortDetail||'')}</span></div></div><div class="dcard"><div class="dtitle">프리매치 핵심 분석</div><div class="prematch-grid">${pm.sections.map(x=>`<div class="prematch-box ${x.c||''}"><div class="pm-title">${esc(x.title)}</div><div class="pm-body">${esc(x.text)}</div></div>`).join('')}<div class="prematch-final"><b>경기 그림</b><br>${esc(pm.final)}</div></div><div class="source-note">리그 최근 흐름·홈/원정·라인업·결장·H2H·시장/환경 변수를 표본 크기와 함께 봅니다. 표본이 작은 항목은 단정 근거로 쓰지 않습니다.</div></div><div class="dcard"><div class="dtitle">현재 순위/득실</div><div class="split-grid"><div class="split-card"><div class="split-head">${esc(h.name)}</div>${metricsHtml(d.homeStanding)}</div><div class="split-card"><div class="split-head">${esc(a.name)}</div>${metricsHtml(d.awayStanding)}</div></div></div>`;
-}
+function matchStatRow(d,label){return(d.matchStats||[]).find(x=>String(x.label).includes(label))||null}
+function makePostmatchAnalysis(d){const h=d.teams.home,a=d.teams.away,hs=Number(d.teams.home.score),as=Number(d.teams.away.score),winner=hs>as?h.name:as>hs?a.name:'무승부',out=[],shots=matchStatRow(d,'슈팅'),on=matchStatRow(d,'유효슈팅'),pos=matchStatRow(d,'점유율'),xg=matchStatRow(d,'기대득점'),corn=matchStatRow(d,'코너킥');out.push(detailItem('경기 결과',winner==='무승부'?`${hs}-${as} 무승부로 종료됐습니다.`:`${winner}가 ${hs}-${as}로 승리했습니다.`,'strong','최종 스코어를 기준으로 경기 결과를 정리합니다.',[`${h.name} ${hs} - ${as} ${a.name}`,`경기 상태: ${d.ev?.status?.type?.shortDetail||'FT'}`],winner==='무승부'?'결과만 보면 양 팀이 승부를 가르지 못했습니다.':'승리팀이 실제 득점에서 우위를 만들었습니다.','아래 경기 내용 통계와 함께 보면 결과가 경기 내용과 일치했는지, 결정력 차이가 컸는지 확인할 수 있습니다.',`최종 결과: ${winner}`));
+ const ev=[];if(shots)ev.push(`슈팅 ${h.name} ${shots.home} / ${a.name} ${shots.away}`);if(on)ev.push(`유효슈팅 ${h.name} ${on.home} / ${a.name} ${on.away}`);if(pos)ev.push(`점유율 ${h.name} ${pos.home} / ${a.name} ${pos.away}`);if(xg)ev.push(`xG ${h.name} ${xg.home} / ${a.name} ${xg.away}`);if(corn)ev.push(`코너킥 ${h.name} ${corn.home} / ${a.name} ${corn.away}`);if(ev.length)out.push(detailItem('경기 내용','슈팅·점유율·xG 등 실제 경기 지표로 결과를 복기합니다.','',`스코어만 보지 않고 경기 내용이 어느 팀 쪽이었는지 확인합니다.`,ev,`유효슈팅과 xG가 스코어와 같은 방향이면 결과의 내용상 설득력이 높습니다. 반대로 내용 우세팀이 패했다면 결정력·골키퍼 선방·퇴장 같은 변수를 확인할 필요가 있습니다.`,'경기 내용과 결과의 일치 여부를 다음 경기 평가에 반영할 수 있습니다.','경기 내용 통계 확인 완료'));
+ const cards=cardCountsFromSummary(d.summary,d.teams),primary=primaryOfficial(d.officials||[]);out.push(detailItem('카드 / 경기 흐름',`옐로 ${cards.yellow}장 · 레드 ${cards.red}장이 기록됐습니다.`,cards.red?'warn':'',`카드와 주요 이벤트가 경기 흐름을 바꿨는지 확인합니다.`,[primary?`주심 ${primary.name}`:'주심 정보 미제공',`옐로카드 ${cards.yellow}장 · 레드카드 ${cards.red}장`,`주요 이벤트 ${d.timeline?.length||0}건 확인`],cards.red?'퇴장이 있었다면 이후 점유율·슈팅·스코어 흐름을 그대로 비교하기 어렵습니다. 퇴장 시점을 기준으로 경기를 나눠 보는 것이 좋습니다.':'퇴장 변수가 크지 않았다면 팀 전력과 경기 내용의 직접 비교가 상대적으로 유효합니다.','심판 성향과 카드 발생 정도는 다음 경기에서 동일 심판을 볼 때 참고 자료가 됩니다.',cards.red?'퇴장 변수 있음':'큰 퇴장 변수 없음'));
+ const pre=makePrematchAnalysis({...d,ev:{...d.ev,status:{type:{state:'pre'}}}}),lean=pre.final;out.push(detailItem('사전 흐름과 실제 결과','경기 전 데이터 흐름과 최종 결과를 비교합니다.','',`경기 전 확보됐던 최근 흐름·홈/원정·라인업 자료가 실제 결과와 얼마나 맞았는지 확인합니다.`,[`사전 경기 그림: ${lean}`,`실제 결과: ${h.name} ${hs}-${as} ${a.name}`],'사전 흐름과 실제 결과가 다르면 단순히 예측 실패로 끝내기보다, 라인업 변경·퇴장·결정력·표본 부족 중 어떤 요소가 달랐는지 확인하는 것이 중요합니다.','이 복기 결과는 같은 팀의 다음 경기에서 최근 흐름 가중치를 조정하는 참고가 됩니다.','사전 데이터와 실제 결과 비교 완료'));return{sections:out,final:`${h.name} ${hs}-${as} ${a.name} · 결과뿐 아니라 경기 내용과 변수를 함께 복기합니다.`,mode:'post'} }
+function analysisDetailHtml(item){const d=item?.detail||{},ev=(d.evidence||[]).map(x=>`<div>${esc(x)}</div>`).join('');return`<div class="analysis-detail-section"><div class="k">핵심 결론</div><div class="v">${esc(d.conclusion||item.summary||'')}</div></div>${ev?`<div class="analysis-detail-section"><div class="k">근거 데이터</div><div class="analysis-evidence">${ev}</div></div>`:''}<div class="analysis-detail-section"><div class="k">해석</div><div class="v">${esc(d.interpretation||'')}</div></div><div class="analysis-detail-section"><div class="k">경기 영향</div><div class="v">${esc(d.impact||'')}</div></div><div class="analysis-detail-section analysis-final-line"><div class="k">최종 한 줄</div><div class="v">${esc(d.final||item.summary||'')}</div></div>`}
+function openAnalysisModal(d,item,mode){$('#analysisModalTitle').childNodes[0].nodeValue=item.title;$('#analysisModalSub').textContent=mode==='post'?'경기 결과 · 복기 상세':'프리매치 상세 분석';$('#analysisModalBody').innerHTML=analysisDetailHtml(item);$('#analysisModal').classList.remove('hidden');$('#analysisModal').setAttribute('aria-hidden','false')}
+function closeAnalysisModal(){$('#analysisModal').classList.add('hidden');$('#analysisModal').setAttribute('aria-hidden','true')}
+function wireAnalysisClicks(d,bundle){document.querySelectorAll('#pane-analysis .analysis-open').forEach(el=>{el.onclick=()=>{const i=Number(el.dataset.analysisIndex);if(Number.isFinite(i)&&bundle.sections[i])openAnalysisModal(d,bundle.sections[i],bundle.mode)}})}
+function eventFinished(d){const st=d?.ev?.status?.type||d?.summary?.header?.competitions?.[0]?.status?.type||{};return st.completed===true||st.state==='post'||/\bFT\b|Final|종료/i.test(String(st.shortDetail||st.detail||''))}
+function renderAnalysisPane(d){const h=d.teams.home,a=d.teams.away,post=eventFinished(d),pm=post?makePostmatchAnalysis(d):makePrematchAnalysis(d),title=post?'경기 결과 · 복기 분석':'프리매치 핵심 분석';$('#pane-analysis').innerHTML=`<div class="dcard"><div class="dtitle">경기 요약</div><div class="fs-strip"><span class="fs-chip">${esc(LEAGUE_NAME.get(d.league)||d.league||'대회')}</span><span class="fs-chip">${esc(kstDateTime(d.ev.date))}</span><span class="fs-chip">${esc(d.ev?.status?.type?.shortDetail||'')}</span></div></div><div class="dcard"><div class="dtitle">${title}</div><div class="dsub">요약만 먼저 보여줍니다. 각 항목을 누르면 근거 데이터와 상세 해석을 크게 볼 수 있습니다.</div><div class="prematch-grid">${pm.sections.map((x,i)=>`<div class="prematch-box analysis-open ${x.c||''}" data-analysis-index="${i}"><div class="pm-title">${esc(x.title)}</div><div class="pm-body">${esc(x.summary)}</div></div>`).join('')}<div class="prematch-final"><b>${post?'복기 한 줄':'경기 그림'}</b><br>${esc(pm.final)}</div></div><div class="source-note">${post?'최종 결과·경기 통계·카드·사전 흐름을 함께 복기합니다.':'리그 최근 흐름·홈/원정·라인업·결장·H2H·시장/환경 변수를 표본 크기와 함께 봅니다.'}</div></div><div class="dcard"><div class="dtitle">현재 순위/득실</div><div class="split-grid"><div class="split-card"><div class="split-head">${esc(h.name)}</div>${metricsHtml(d.homeStanding)}</div><div class="split-card"><div class="split-head">${esc(a.name)}</div>${metricsHtml(d.awayStanding)}</div></div></div>`;wireAnalysisClicks(d,pm)}
 function metricsHtml(x){if(!x)return'<div class="empty">데이터 미제공</div>';return`<div class="metric-grid"><div class="metric"><span class="k">경기</span><span class="v">${esc(x.gp)}</span></div><div class="metric"><span class="k">득점</span><span class="v">${esc(x.gf)}</span></div><div class="metric"><span class="k">실점</span><span class="v">${esc(x.ga)}</span></div><div class="metric"><span class="k">승점</span><span class="v">${esc(x.pts)}</span></div></div><div class="metric-grid" style="margin-top:6px"><div class="metric"><span class="k">경기당 득점</span><span class="v">${fmt1(x.gfpg)}</span></div><div class="metric"><span class="k">경기당 실점</span><span class="v">${fmt1(x.gapg)}</span></div><div class="metric"><span class="k">GD</span><span class="v">${esc(x.gd)}</span></div><div class="metric"><span class="k">순위</span><span class="v">${esc(x.rank)}</span></div></div>`}
 function splitHtml(x){if(!x)return'<div class="empty">해당 홈/원정 완료경기 없음</div>';return`<div class="grid3"><div class="metric"><span class="k">경기</span><span class="v">${x.gp}</span></div><div class="metric"><span class="k">득점/경기</span><span class="v">${fmt1(x.gfpg)}</span></div><div class="metric"><span class="k">실점/경기</span><span class="v">${fmt1(x.gapg)}</span></div></div>`}
 function formChips(x){if(!x?.games?.length)return'<span class="dsub">기록 없음</span>';const w=x.games.filter(g=>g.result==='W').length,d=x.games.filter(g=>g.result==='D').length,l=x.games.filter(g=>g.result==='L').length,gf=x.games.reduce((s,g)=>s+g.gf,0),ga=x.games.reduce((s,g)=>s+g.ga,0);return`<div class="form-row">${x.games.map(g=>`<span class="form-chip ${g.result}">${g.result}</span>`).join('')}</div><div class="sample-note">${x.games.length}경기 · ${w}승 ${d}무 ${l}패 · 득점 ${gf} / 실점 ${ga}</div>`}
@@ -854,14 +838,14 @@ function weatherHtml(w){if(!w||w.ok===false)return`<div class="compact-empty">${
 function h2hOddsText(o){if(!o)return'당시 배당 데이터가 제공되지 않습니다.';return`홈 ${oddsText(o.home)} · 무 ${oddsText(o.draw)} · 원정 ${oddsText(o.away)} · 핸디 ${oddsText(o.spread)} · O/U ${oddsText(o.ou)}`}
 function h2hRecordList(a,oddsLoading=false){
  if(!a?.length)return'<div class="empty">확인된 맞대결 기록이 없습니다.</div>';
- return`<div>${a.map(x=>{const has=oddsHasValue(x.odds),pending=oddsLoading&&x.odds===undefined;return`<details class="h2h-match"><summary><div class="h2h-summary-row"><span class="date">${esc(shortDate(x.date))}</span><span class="teams">${esc(x.homeName||'')} vs ${esc(x.awayName||'')}</span><span class="score">${x.homeScore??'-'}-${x.awayScore??'-'}</span></div></summary><div class="h2h-details">${pending?'과거 배당·핸디캡·O/U 확인 중…':has?`<div class="h2h-odds-grid"><div class="h2h-odd"><div class="k">홈</div><div class="v">${esc(oddsText(x.odds.home))}</div></div><div class="h2h-odd"><div class="k">무승부</div><div class="v">${esc(oddsText(x.odds.draw))}</div></div><div class="h2h-odd"><div class="k">원정</div><div class="v">${esc(oddsText(x.odds.away))}</div></div></div><div>핸디캡 기준점 <b>${esc(oddsText(x.odds.spread))}</b> · O/U 기준점 <b>${esc(oddsText(x.odds.ou))}</b></div>`:'ESPN에서 해당 경기의 당시 배당·핸디캡·O/U 값을 확인하지 못했습니다.'}</div></details>`}).join('')}</div>`
+ return`<div>${a.map(x=>{const has=oddsHasValue(x.odds),pending=oddsLoading&&x.odds===undefined;return`<details class="h2h-match"><summary><div class="h2h-summary-row"><span class="date">${esc(shortDate(x.date))}</span><span class="teams">${esc(x.homeName||'')} vs ${esc(x.awayName||'')}</span><span class="score">${x.homeScore??'-'}-${x.awayScore??'-'}</span></div></summary><div class="h2h-details">${pending?'과거 배당·핸디캡·O/U 확인 중…':has?`<div class="h2h-odds-grid"><div class="h2h-odd"><div class="k">홈</div><div class="v">${esc(oddsText(x.odds.home))}</div></div><div class="h2h-odd"><div class="k">무승부</div><div class="v">${esc(oddsText(x.odds.draw))}</div></div><div class="h2h-odd"><div class="k">원정</div><div class="v">${esc(oddsText(x.odds.away))}</div></div></div><div>핸디캡 기준점 <b>${esc(oddsText(x.odds.spread))}</b> · O/U 기준점 <b>${esc(oddsText(x.odds.ou))}</b></div><div class="source-note">출처: ${esc(x.odds.provider||'ESPN')}</div>`:'ESPN 및 역사 배당 데이터에서 해당 경기 값을 확인하지 못했습니다.'}</div></details>`}).join('')}</div>`
 }
 function renderRecordsPane(d){
  const h=d.teams.home,a=d.teams.away,home5=d.homeForm5?.games?.length||0,away5=d.awayForm5?.games?.length||0,home10=d.homeForm10?.games?.length||0,away10=d.awayForm10?.games?.length||0,show10=Math.max(home10,away10)>5,leagueName=LEAGUE_NAME.get(d.league)||d.league||'선택 리그';
  const h2hTitle=d.h2hLoaded?`맞대결 H2H · ESPN 제공 범위 전체 ${d.h2h.length}경기`:`맞대결 H2H · 전체 기록 불러오는 중…`;
  const h2hBody=d.h2hLoaded?(d.h2hError?'<div class="empty">전체 H2H 조회 중 오류가 발생했습니다.</div>':h2hRecordList(d.h2h,d.h2hOddsLoading)):`<div class="loading-lines">현재 시즌으로 제한하지 않고 과거 시즌 전체를 확인하는 중…</div>`;
  const progress=d.h2hOddsLoading?`<div class="h2h-odds-loading">과거 배당/핸디/O-U 기준점 ${d.h2hOddsDone||0}/${d.h2h.length}경기 확인 중…</div>`:'';
- $('#pane-records').innerHTML=`<div class="dcard"><div class="dtitle">${esc(leagueName)} 최근 흐름</div><div class="dsub">자동 분석의 최근 5·10경기는 선택한 리그 경기만 사용합니다.</div><div class="split-grid"><div class="split-card"><div class="split-head">${esc(h.name)} 최근 ${home5||0}경기</div>${formChips(d.homeForm5)}</div><div class="split-card"><div class="split-head">${esc(a.name)} 최근 ${away5||0}경기</div>${formChips(d.awayForm5)}</div></div>${show10?`<div class="split-grid" style="margin-top:8px"><div class="split-card"><div class="split-head">${esc(h.name)} 최근 ${home10}경기</div>${formChips(d.homeForm10)}</div><div class="split-card"><div class="split-head">${esc(a.name)} 최근 ${away10}경기</div>${formChips(d.awayForm10)}</div></div>`:''}</div><div class="dcard"><div class="dtitle">${esc(h.name)} · 전체대회 최근 경기</div>${recentPreviewList(d.homeHist.slice(0,20))}</div><div class="dcard"><div class="dtitle">${esc(a.name)} · 전체대회 최근 경기</div>${recentPreviewList(d.awayHist.slice(0,20))}</div><div class="dcard"><div class="dtitle">${h2hTitle}</div>${progress}${h2hBody}<div class="source-note">H2H는 올 시즌만이 아니라 ESPN에서 조회 가능한 과거 시즌 전체를 대상으로 찾습니다. 과거 배당·핸디캡·O/U 기준점은 해당 경기 ESPN 기록에 남아 있는 경우만 표시합니다.</div></div>`;
+ $('#pane-records').innerHTML=`<div class="dcard"><div class="dtitle">${esc(leagueName)} 최근 흐름</div><div class="dsub">자동 분석의 최근 5·10경기는 선택한 리그 경기만 사용합니다.</div><div class="split-grid"><div class="split-card"><div class="split-head">${esc(h.name)} 최근 ${home5||0}경기</div>${formChips(d.homeForm5)}</div><div class="split-card"><div class="split-head">${esc(a.name)} 최근 ${away5||0}경기</div>${formChips(d.awayForm5)}</div></div>${show10?`<div class="split-grid" style="margin-top:8px"><div class="split-card"><div class="split-head">${esc(h.name)} 최근 ${home10}경기</div>${formChips(d.homeForm10)}</div><div class="split-card"><div class="split-head">${esc(a.name)} 최근 ${away10}경기</div>${formChips(d.awayForm10)}</div></div>`:''}</div><div class="dcard"><div class="dtitle">${esc(h.name)} · 전체대회 최근 경기</div>${recentPreviewList(d.homeHist.slice(0,20))}</div><div class="dcard"><div class="dtitle">${esc(a.name)} · 전체대회 최근 경기</div>${recentPreviewList(d.awayHist.slice(0,20))}</div><div class="dcard"><div class="dtitle">${h2hTitle}</div>${progress}${h2hBody}<div class="source-note">H2H는 올 시즌만이 아니라 ESPN에서 조회 가능한 과거 시즌 전체를 대상으로 찾습니다. 과거 배당은 ESPN을 먼저 확인하고, 없으면 Football-Data.co.uk 역사 데이터에서 같은 날짜·홈팀·원정팀을 매칭합니다. 그래도 없는 경기만 미제공으로 표시합니다.</div></div>`;
 }
 function renderDetail(d){
  const h=d.teams.home,a=d.teams.away,home5=d.homeForm5?.games?.length||0,away5=d.awayForm5?.games?.length||0,home10=d.homeForm10?.games?.length||0,away10=d.awayForm10?.games?.length||0,show10=Math.max(home10,away10)>5;
@@ -871,12 +855,12 @@ function renderDetail(d){
  renderLineupPane(d);
  $('#pane-injuries').innerHTML=`<div class="dcard"><div class="dtitle">${esc(h.name)} 결장/부상</div>${injuryPaneHtml(d,'home')}</div><div class="dcard"><div class="dtitle">${esc(a.name)} 결장/부상</div>${injuryPaneHtml(d,'away')}</div>`;
  const primary=primaryOfficial(d.officials),others=d.officials.filter(o=>!primary||o.name!==primary.name),refHtml=primary?`<button class="ref-btn" data-refname="${esc(primary.name)}" data-reftarget="refhist-main"><span><b>${esc(primary.name)}</b><br><small>${esc(primary.role||'주심')}</small></span><span class="role">시즌 기록 보기 ›</span></button><div id="refhist-main" class="ref-history"></div>${others.length?`<div class="sample-note">기타 심판진: ${others.map(o=>esc(o.name)).join(' · ')}</div>`:''}`:'<div class="empty">ESPN / 경기 데이터에서 주심을 확인하지 못했습니다.</div>';
- $('#pane-referee').innerHTML=`<div class="dcard"><div class="dtitle">심판</div><div class="dsub">주심을 누르면 올 시즌과 지난 시즌의 주심 배정을 먼저 빠르게 확인하고, 해당 주심 경기의 카드 평균을 계산합니다.</div>${refHtml}</div><div class="dcard"><div class="dtitle">현재 경기 주요 이벤트 / 카드</div>${d.timeline.length?`<div class="timeline">${d.timeline.map(x=>`<div class="event-row"><span class="min">${esc(x.time||'')}</span><span>${esc(eventTextKo(x.text))}</span></div>`).join('')}</div>`:'<div class="empty">경기 전이거나 이벤트 데이터 미제공</div>'}</div>`;
+ $('#pane-referee').innerHTML=`<div class="dcard"><div class="dtitle">심판</div><div class="dsub">주심을 누르면 올 시즌과 지난 시즌 완료 경기 전체를 전수 확인해 카드 평균을 계산합니다. 첫 조회는 느릴 수 있지만, 같은 화면에서는 한 번 완료한 결과를 다시 읽지 않습니다.</div>${refHtml}</div><div class="dcard"><div class="dtitle">현재 경기 주요 이벤트 / 카드</div>${d.timeline.length?`<div class="timeline">${d.timeline.map(x=>`<div class="event-row"><span class="min">${esc(x.time||'')}</span><span>${esc(eventTextKo(x.text))}</span></div>`).join('')}</div>`:'<div class="empty">경기 전이거나 이벤트 데이터 미제공</div>'}</div>`;
  $('#pane-odds').innerHTML=`<div class="dcard"><div class="dtitle">배당</div>${oddsHtml(d.odds,d.teams)}<div class="source-note">객체형/깨진 배당값은 숨기고 실제 숫자로 읽히는 값만 표시합니다.</div></div>`;
  $('#pane-weather').innerHTML=`<div class="dcard"><div class="dtitle">경기장 날씨</div>${weatherHtml(d.weather)}<div class="source-note">ESPN 날씨 우선. 과거 경기는 Open-Meteo 과거날씨, 미래 경기는 예보를 사용합니다.</div></div>`;
  document.querySelectorAll('.ref-btn').forEach(b=>b.onclick=()=>showRefereeHistory(b.dataset.refname,b.dataset.reftarget));
 }
-$('#matchTab').onclick=()=>setMode('match');$('#standTab').onclick=()=>setMode('stand');$('#loadBtn').onclick=()=>state.mode==='match'?loadMatches():loadStandings();$('#matchSearch').oninput=()=>state.mode==='match'&&renderMatches();$('#league').onchange=()=>localStorage.setItem('soccerLeague',$('#league').value);document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{$('#matchDate').value=b.dataset.day==='0'?todayKST():addDays($('#matchDate').value,Number(b.dataset.day));loadMatches()});$('#closeDetail').onclick=closeDetail;$('#closePlayer').onclick=closePlayerModal;$('#playerModal').onclick=e=>{if(e.target===$('#playerModal'))closePlayerModal()};document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>showDetailPane(b.dataset.pane));window.addEventListener('popstate',()=>{if(!$('#playerModal').classList.contains('hidden')){hidePlayerModal();return}if(!$('#detailSheet').classList.contains('hidden'))hideDetail()});
+$('#matchTab').onclick=()=>setMode('match');$('#standTab').onclick=()=>setMode('stand');$('#loadBtn').onclick=()=>state.mode==='match'?loadMatches():loadStandings();$('#matchSearch').oninput=()=>state.mode==='match'&&renderMatches();$('#league').onchange=()=>localStorage.setItem('soccerLeague',$('#league').value);document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{$('#matchDate').value=b.dataset.day==='0'?todayKST():addDays($('#matchDate').value,Number(b.dataset.day));loadMatches()});$('#closeDetail').onclick=closeDetail;$('#closePlayer').onclick=closePlayerModal;$('#playerModal').onclick=e=>{if(e.target===$('#playerModal'))closePlayerModal()};$('#closeAnalysis').onclick=closeAnalysisModal;$('#analysisModal').onclick=e=>{if(e.target===$('#analysisModal'))closeAnalysisModal()};document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>showDetailPane(b.dataset.pane));window.addEventListener('popstate',()=>{if(!$('#playerModal').classList.contains('hidden')){hidePlayerModal();return}if(!$('#detailSheet').classList.contains('hidden'))hideDetail()});
 initLeagues();$('#matchDate').value=todayKST();loadMatches();
 </script>
 </body>
