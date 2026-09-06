@@ -163,7 +163,7 @@ const $=s=>document.querySelector(s);
 const ESPN='https://site.api.espn.com';
 const ESPN_CORE='https://sports.core.api.espn.com';
 const TDB='https://www.thesportsdb.com/api/v1/json/123';
-const state={mode:'match',matches:[],eventLeague:new Map(),standingCache:new Map(),jsonCache:new Map(),currentDetail:null,lastScoreboard:null,refCache:new Map(),refSeasonCache:new Map(),lineupRoleCache:new Map(),h2hCache:new Map(),playerStatsCache:new Map(),marketValueCache:new Map(),h2hOddsCache:new Map()};
+const state={mode:'match',matches:[],eventLeague:new Map(),standingCache:new Map(),jsonCache:new Map(),currentDetail:null,lastScoreboard:null,refCache:new Map(),refSeasonCache:new Map(),lineupRoleCache:new Map(),h2hCache:new Map(),playerStatsCache:new Map(),marketValueCache:new Map(),h2hOddsCache:new Map(),coreAthleteCache:new Map(),corePlayerStatsCache:new Map(),officialEventCache:new Map(),injuryRosterCache:new Map()};
 
 const BASE_LEAGUES=[
  ['all','전체 축구'],['eng.1','EPL'],['esp.1','LaLiga'],['ita.1','Serie A'],['ger.1','Bundesliga'],['fra.1','Ligue 1'],
@@ -281,12 +281,49 @@ function showDetailPane(p){document.querySelectorAll('.detail-pane').forEach(x=>
 
 async function fetchSummary(eventId,leagueHint){const candidates=[leagueHint,'all',inferLeague(state.currentDetail?.ev||{},leagueHint)].filter((v,i,a)=>v&&a.indexOf(v)===i);let last;for(const lg of candidates){try{const d=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/summary?event=${encodeURIComponent(eventId)}`);if(d&&Object.keys(d).length)return {data:d,league:lg}}catch(e){last=e}}return {data:null,league:leagueHint,error:last}}
 async function teamSchedule(league,teamId,season){if(!teamId)return null;try{return await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(league||'all')}/teams/${encodeURIComponent(teamId)}/schedule?season=${season}&limit=250`)}catch(e){return null}}
-async function teamInjuries(league,teamId){
- if(!teamId)return{ok:false,data:null,scope:'none'};
+function injuryStatusText(v){return String(v||'').trim()}
+function rosterInjuryCandidates(node,out=[],depth=0){
+ if(!node||depth>7)return out;
+ if(Array.isArray(node)){node.forEach(x=>rosterInjuryCandidates(x,out,depth+1));return out}
+ if(typeof node!=='object')return out;
+ const a=node.athlete||node.player||((node.displayName||node.fullName)&&node.id?node:null);
+ if(a&&(a.displayName||a.fullName||a.name)){
+  const status=injuryStatusText(node?.status?.type?.description||node?.status?.type?.name||node?.status?.name||node?.status||node?.injury?.status||node?.injury?.type||node?.description||'');
+  const detail=injuryStatusText(node?.injury?.details||node?.injury?.description||node?.details?.description||'');
+  const merged=`${status} ${detail}`.trim();
+  if(/injur|out|doubt|questionable|suspend|illness|hamstring|ankle|knee|muscle|knock|groin|calf|shoulder|back|hip|thigh|foot|leg|concussion|unavailable/i.test(merged)){
+    out.push({name:a.displayName||a.fullName||a.name,status:merged||'결장/부상',teamId:String(node?.team?.id||a?.team?.id||'')})
+  }
+ }
+ for(const v of Object.values(node))if(v&&typeof v==='object')rosterInjuryCandidates(v,out,depth+1);
+ return out
+}
+async function teamRosterFallback(league,teamId){
+ const key=`${league}|${teamId}`;if(state.injuryRosterCache.has(key))return state.injuryRosterCache.get(key);
  const leagues=[league,'all'].filter((v,i,a)=>v&&a.indexOf(v)===i);
- for(const lg of leagues){try{const j=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/teams/${encodeURIComponent(teamId)}/injuries`);if(j!==null&&j!==undefined)return{ok:true,data:j,scope:'team',league:lg}}catch(e){}}
- for(const lg of leagues.filter(x=>x!=='all')){try{const j=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/injuries`);if(j!==null&&j!==undefined)return{ok:true,data:j,scope:'league',league:lg}}catch(e){}}
- return{ok:false,data:null,scope:'none'}
+ for(const lg of leagues){try{
+  const j=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/teams/${encodeURIComponent(teamId)}/roster`);
+  const items=rosterInjuryCandidates(j),res={ok:!!j,data:j,scope:'roster',league:lg,fallbackItems:items};
+  state.injuryRosterCache.set(key,res);return res
+ }catch(e){}}
+ const res={ok:false,data:null,scope:'none',fallbackItems:[]};state.injuryRosterCache.set(key,res);return res
+}
+async function teamInjuries(league,teamId){
+ if(!teamId)return{ok:false,data:null,scope:'none',fallbackItems:[]};
+ const leagues=[league,'all'].filter((v,i,a)=>v&&a.indexOf(v)===i);let empty=null;
+ for(const lg of leagues){try{
+  const j=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/teams/${encodeURIComponent(teamId)}/injuries`);
+  const wrap={ok:true,data:j,scope:'team',league:lg,fallbackItems:[]};
+  if(parseInjuries(wrap,teamId).length)return wrap;empty=empty||wrap
+ }catch(e){}}
+ for(const lg of leagues.filter(x=>x!=='all')){try{
+  const j=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(lg)}/injuries`);
+  const wrap={ok:true,data:j,scope:'league',league:lg,fallbackItems:[]};
+  if(parseInjuries(wrap,teamId).length)return wrap;empty=empty||wrap
+ }catch(e){}}
+ const roster=await teamRosterFallback(league,teamId);
+ if(roster.fallbackItems?.length)return roster;
+ return empty||roster||{ok:false,data:null,scope:'none',fallbackItems:[]}
 }
 async function tdbTeamRecent(teamName,beforeDate){try{const s=await fetchJson(`${TDB}/searchteams.php?t=${encodeURIComponent(teamName)}`),team=s?.teams?.[0];if(!team?.idTeam)return[];const r=await fetchJson(`${TDB}/eventslast.php?id=${encodeURIComponent(team.idTeam)}`),arr=r?.results||r?.events||[];return arr.map(ev=>{const home=String(ev.idHomeTeam||'')===String(team.idTeam),gf=num(home?ev.intHomeScore:ev.intAwayScore),ga=num(home?ev.intAwayScore:ev.intHomeScore);if(gf===null||ga===null||!ev.strTimestamp||new Date(ev.strTimestamp)>=new Date(beforeDate))return null;return{id:String(ev.idEvent||''),date:ev.strTimestamp,opponent:home?(ev.strAwayTeam||'-'):(ev.strHomeTeam||'-'),opponentId:String(home?ev.idAwayTeam:ev.idHomeTeam||''),homeAway:home?'home':'away',gf,ga,result:gf>ga?'W':gf<ga?'L':'D',name:ev.strEvent||'',season:Number(String(ev.strSeason||'').slice(0,4))||new Date(ev.strTimestamp).getFullYear()}}).filter(Boolean)}catch(e){return[]}}
 async function fetchHistory(league,team,seasonYear,beforeDate){if(!team.id)return[];const years=[seasonYear,seasonYear-1,seasonYear-2,seasonYear-3],all=[];const candidates=['all',league].filter((v,i,a)=>v&&a.indexOf(v)===i);for(const y of years){for(const lg of candidates){const d=await teamSchedule(lg,team.id,y);for(const ev of (d?.events||[])){const r=scheduleRecord(ev,team.id,beforeDate);if(r){r.season=y;all.push(r)}}if(all.length>=20)break}if(all.length>=20)break}if(all.length<5)all.push(...await tdbTeamRecent(team.name,beforeDate));const seen=new Set();return all.filter(x=>x.id&&!seen.has(x.id)&&(seen.add(x.id),true)).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,60)}
@@ -357,7 +394,7 @@ async function buildDetail(ev,leagueHint){
  const homeSplit=splitStats(homeLeagueHist,seasonYear,'home'),awaySplit=splitStats(awayLeagueHist,seasonYear,'away'),homeForm5=formStats(homeLeagueHist,5),awayForm5=formStats(awayLeagueHist,5),homeForm10=formStats(homeLeagueHist,10),awayForm10=formStats(awayLeagueHist,10),homeForm20=formStats(homeLeagueHist,20),awayForm20=formStats(awayLeagueHist,20),h2h=h2hFromHistory(homeHist,teams.away.id);
  let lineups=parseEspnLineups(summary,teams),timeline=parseEspnTimeline(summary),tdb=null,lineupSource=((lineups.home||[]).length||(lineups.away||[]).length)?'espn':'none';
  if((!lineups.home.length&&!lineups.away.length)||!timeline.length){tdb=await tdbFallback(teams.home.name,teams.away.name,ev.date);if(!lineups.home.length&&!lineups.away.length&&tdb?.lineups){lineups=tdb.lineups;lineupSource='tdb'}if(!timeline.length&&tdb?.timeline?.length)timeline=tdb.timeline}
- const homeInjItems=parseInjuries(homeInjRaw,teams.home.id),awayInjItems=parseInjuries(awayInjRaw,teams.away.id),injuries={home:{available:!!homeInjRaw?.ok&&(homeInjRaw.scope==='team'||homeInjItems.length>0),items:homeInjItems},away:{available:!!awayInjRaw?.ok&&(awayInjRaw.scope==='team'||awayInjItems.length>0),items:awayInjItems}};
+ const homeInjItems=parseInjuries(homeInjRaw,teams.home.id),awayInjItems=parseInjuries(awayInjRaw,teams.away.id),injuries={home:{available:!!homeInjRaw?.ok,items:homeInjItems,scope:homeInjRaw?.scope||'none'},away:{available:!!awayInjRaw?.ok,items:awayInjItems,scope:awayInjRaw?.scope||'none'}};
  let officials=parseOfficials(summary);
  if(!officials.length){const fromEvent=parseOfficials({header:{competitions:ev?.competitions||[]}});if(fromEvent.length)officials=fromEvent}
  if(!officials.length&&league&&league!=='all'){try{const cor=await coreOfficials(league,ev.id);const p=parseCoreOfficials(cor);if(p.length)officials=p}catch(e){}}
@@ -379,7 +416,7 @@ function parseEspnLineups(summary,teams){
 }
 function parseEspnTimeline(summary){const roots=[summary?.details,summary?.plays,summary?.keyEvents,summary?.commentary].filter(Array.isArray),out=[],seen=new Set();function add(x){if(!x||typeof x!=='object')return;const type=x?.type?.text||x?.type?.description||x?.type?.name||'',text=x?.text||x?.shortText||x?.description||x?.headline||'';const merged=`${type} ${text}`.trim();if(!merged)return;const interesting=/card|yellow|red|goal|substitution|penalty|own goal/i.test(merged);if(!interesting)return;const clock=x?.clock?.displayValue||x?.time?.displayValue||x?.period?.displayValue||'';const key=clock+'|'+merged;if(seen.has(key))return;seen.add(key);out.push({time:clock,text:merged})}function walk(n,depth=0){if(depth>4||!n)return;if(Array.isArray(n)){n.forEach(x=>walk(x,depth+1));return}if(typeof n==='object'){add(n);for(const [k,v] of Object.entries(n))if(['details','plays','keyEvents','commentary','events','items'].includes(k))walk(v,depth+1)}}roots.forEach(r=>walk(r));return out.slice(0,60)}
 function collectAthleteObjects(node,out=[],depth=0,teamCtx=''){if(depth>6||!node)return out;if(Array.isArray(node)){node.forEach(x=>collectAthleteObjects(x,out,depth+1,teamCtx));return out}if(typeof node==='object'){let ctx=teamCtx;const directTeam=node?.team?.id||node?.teamId||node?.team?.uid;if(directTeam)ctx=String(directTeam);else if(Array.isArray(node?.injuries)&&node?.id&&!node?.athlete&&!node?.player)ctx=String(node.id);const a=node.athlete||node.player;if(a&&(a.displayName||a.fullName||a.name)){out.push({name:a.displayName||a.fullName||a.name,status:node?.status?.type?.name||node?.status?.name||node?.status||node?.type?.description||node?.type?.name||node?.details?.type||node?.description||'',teamId:ctx})}for(const v of Object.values(node))if(v&&typeof v==='object')collectAthleteObjects(v,out,depth+1,ctx)}return out}
-function parseInjuries(rawWrap,teamId){const raw=rawWrap?.data??rawWrap;if(raw===null||raw===undefined)return[];const a=collectAthleteObjects(raw),seen=new Set(),scope=rawWrap?.scope||'team';return a.filter(x=>{if(scope==='league'&&String(x.teamId||'')!==String(teamId))return false;const k=x.name+'|'+x.status;if(seen.has(k))return false;seen.add(k);return true}).slice(0,30)}
+function parseInjuries(rawWrap,teamId){const raw=rawWrap?.data??rawWrap;if(raw===null||raw===undefined)return rawWrap?.fallbackItems||[];const a=[...(collectAthleteObjects(raw)||[]),...((rawWrap?.fallbackItems)||[])],seen=new Set(),scope=rawWrap?.scope||'team';return a.filter(x=>{if(scope==='league'&&x.teamId&&String(x.teamId)!==String(teamId))return false;const k=roleKey(x.name)+'|'+String(x.status||'');if(seen.has(k))return false;seen.add(k);return true}).slice(0,30)}
 function parseOfficials(summary){const c=summary?.header?.competitions?.[0]||{},arr=[...(c?.officials||[]),...(summary?.gameInfo?.officials||[])],out=[];for(const o of arr){const name=o?.displayName||o?.fullName||o?.official?.displayName||o?.athlete?.displayName;if(name)out.push({name,role:o?.position?.displayName||o?.position?.name||o?.type?.text||o?.role||''})}const seen=new Set();return out.filter(x=>!seen.has(x.name)&&(seen.add(x.name),true))}
 
 function scalar(v){if(v===null||v===undefined)return null;if(typeof v==='number'||typeof v==='string')return v;if(typeof v==='object'){for(const k of ['displayValue','value','odds','moneyLine','american','decimal','current','close']){const x=v?.[k];if(typeof x==='number'||typeof x==='string')return x;if(x&&typeof x==='object'){const y=scalar(x);if(y!==null)return y}}}return null}
@@ -440,14 +477,14 @@ function lineupRows(formation,starters){
  return [...defenseToAttack].reverse().concat(gk?[[gk]]:[])
 }
 function roleKey(name){return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'')}
-function roleClass(role){return role==='main'?'role-main':role==='rotation'?'role-rotation':role==='backup'?'role-backup':'role-unknown'}
-function roleDotClass(role){return role==='main'?'main':role==='rotation'?'rotation':role==='backup'?'backup':'unknown'}
-function roleLabel(role){return role==='main'?'주력':role==='rotation'?'로테이션':role==='backup'?'백업':''}
+function roleClass(role){return role==='main'?'role-main':role==='backup'?'role-backup':'role-rotation'}
+function roleDotClass(role){return role==='main'?'main':role==='backup'?'backup':'rotation'}
+function roleLabel(role){return role==='main'?'주력':role==='backup'?'백업':'로테이션'}
 function lineupLegend(loading=false){return`<div class="lineup-legend"><span class="legend-item"><i class="legend-dot main"></i>주력</span><span class="legend-item"><i class="legend-dot rotation"></i>로테이션</span><span class="legend-item"><i class="legend-dot backup"></i>백업</span></div>${loading?'<div class="lineup-status">선발 출전 기록을 확인해 선수 역할을 계산하는 중…</div>':''}`}
 function pitchTeamHtml(name,formation,arr,side,roles={}){
  const starters=(arr||[]).filter(x=>x.starter).slice(0,11);if(starters.length<7)return`<div class="empty">${esc(name)} 공식 선발 위치 데이터 미제공</div>`;
  const rows=lineupRows(formation,starters),players=[];
- rows.forEach((row,ri)=>{const y=12+(ri/(Math.max(rows.length-1,1)))*76;row.forEach((p,pi)=>{const x=((pi+1)/(row.length+1))*100,role=roles[roleKey(p.name)]?.role||'unknown';players.push(`<div class="pitch-player player-open" data-side="${esc(side)}" data-pid="${esc(p.id||'')}" data-pname="${esc(p.name)}" style="left:${x}%;top:${y}%" title="${esc(p.name)} · ${esc(roleLabel(role))}"><div class="pitch-dot ${roleClass(role)}">${esc(p.jersey||'')}</div><div class="pitch-name">${esc(p.name)}</div></div>`)})});
+ rows.forEach((row,ri)=>{const y=12+(ri/(Math.max(rows.length-1,1)))*76;row.forEach((p,pi)=>{const x=((pi+1)/(row.length+1))*100,role=roles[roleKey(p.name)]?.role||'rotation';players.push(`<div class="pitch-player player-open" data-side="${esc(side)}" data-pid="${esc(p.id||'')}" data-pname="${esc(p.name)}" style="left:${x}%;top:${y}%" title="${esc(p.name)} · ${esc(roleLabel(role))}"><div class="pitch-dot ${roleClass(role)}">${esc(p.jersey||'')}</div><div class="pitch-name">${esc(p.name)}</div></div>`)})});
  return`<div class="pitch-half ${side}">${players.join('')}</div>`
 }
 function lineupPitchHtml(d){
@@ -455,95 +492,133 @@ function lineupPitchHtml(d){
  const awayMeta=`<div class="pitch-team-meta"><b>${esc(a.name)}</b><span>${d.lineups.awayFormation?`포메이션 ${esc(d.lineups.awayFormation)}`:'포메이션 미표기'}</span></div>`,homeMeta=`<div class="pitch-team-meta"><b>${esc(h.name)}</b><span>${d.lineups.homeFormation?`포메이션 ${esc(d.lineups.homeFormation)}`:'포메이션 미표기'}</span></div>`;
  return`<div class="pitch-wrap">${awayMeta}<div class="pitch"><i class="pitch-center-spot"></i><i class="pitch-penalty top"></i><i class="pitch-penalty bottom"></i><i class="pitch-goalbox top"></i><i class="pitch-goalbox bottom"></i><i class="pitch-goal top"></i><i class="pitch-goal bottom"></i><i class="pitch-arc top"></i><i class="pitch-arc bottom"></i>${pitchTeamHtml(a.name,d.lineups.awayFormation,d.lineups.away,'away',roles.away||{})}${pitchTeamHtml(h.name,d.lineups.homeFormation,d.lineups.home,'home',roles.home||{})}</div>${homeMeta}</div>${lineupLegend(!d.lineupRoles)}${benchHtml(h.name,d.lineups.home,roles.home||{},'home')}${benchHtml(a.name,d.lineups.away,roles.away||{},'away')}`
 }
-function benchHtml(name,arr,roles={},side=''){const subs=(arr||[]).filter(x=>!x.starter);if(!subs.length)return'';return`<div class="lineup-bench"><div class="dsub">${esc(name)} 교체 명단</div><div class="player-list">${subs.map(p=>{const role=roles[roleKey(p.name)]?.role||'unknown',dot=role==='unknown'?'':`<i class="role-dot ${roleDotClass(role)}"></i>`;return`<div class="player role-player player-open" data-side="${esc(side)}" data-pid="${esc(p.id||'')}" data-pname="${esc(p.name)}"><span>${dot}</span><span class="player-text"><small>${esc(p.jersey||p.pos||'')}</small>${esc(p.name)}</span></div>`}).join('')}</div></div>`}
+function benchHtml(name,arr,roles={},side=''){const subs=(arr||[]).filter(x=>!x.starter);if(!subs.length)return'';return`<div class="lineup-bench"><div class="dsub">${esc(name)} 교체 명단</div><div class="player-list">${subs.map(p=>{const role=roles[roleKey(p.name)]?.role||'rotation',dot=role==='unknown'?'':`<i class="role-dot ${roleDotClass(role)}"></i>`;return`<div class="player role-player player-open" data-side="${esc(side)}" data-pid="${esc(p.id||'')}" data-pname="${esc(p.name)}"><span>${dot}</span><span class="player-text"><small>${esc(p.jersey||p.pos||'')}</small>${esc(p.name)}</span></div>`}).join('')}</div></div>`}
 function startersForTeam(summary,teamId){for(const r of (summary?.rosters||[])){if(String(r?.team?.id||'')!==String(teamId))continue;const arr=r?.roster||r?.athletes||[],starters=[];for(const p of arr){const a=p?.athlete||p?.player||p,name=a?.displayName||a?.fullName||a?.name;if(name&&(p?.starter===true||p?.starter==='true'||p?.subbedOut===true))starters.push(name)}if(starters.length>=7)return starters}return[]}
 async function buildTeamRoleMap(d,side){const team=d.teams[side],hist=side==='home'?d.homeHist:d.awayHist,key=`${d.league}|${team.id}|${d.seasonYear}|${d.ev.date}`;if(state.lineupRoleCache.has(key))return state.lineupRoleCache.get(key);const cur=(hist||[]).filter(x=>x.season===d.seasonYear).slice(0,12),prev=(hist||[]).filter(x=>x.season===d.seasonYear-1).slice(0,20),sets=[['cur',cur],['prev',prev]],counts=new Map(),valid={cur:0,prev:0};
  for(const [bucket,list] of sets){for(let i=0;i<list.length;i+=6){const batch=list.slice(i,i+6),sums=await Promise.all(batch.map(async g=>{try{return(await fetchSummary(g.id,d.league)).data}catch(e){return null}}));for(const sum of sums){const names=startersForTeam(sum,team.id);if(names.length<7)continue;valid[bucket]++;for(const n of names){const k=roleKey(n),o=counts.get(k)||{cur:0,prev:0,name:n};o[bucket]++;counts.set(k,o)}}}}
- const total=valid.cur+valid.prev,result={};for(const [k,o] of counts){let role='unknown',score=null;if(total>=3){const cr=valid.cur?o.cur/valid.cur:null,pr=valid.prev?o.prev/valid.prev:null;if(cr!==null&&pr!==null){const cw=valid.cur<5?.3:valid.cur<10?.6:.8;score=cr*cw+pr*(1-cw)}else score=cr??pr;if(score>=.60)role='main';else if(score>=.30)role='rotation';else role='backup'}result[k]={role,score,currentStarts:o.cur,currentGames:valid.cur,previousStarts:o.prev,previousGames:valid.prev}}
- for(const p of (d.lineups?.[side]||[])){const k=roleKey(p.name);if(result[k])continue;result[k]={role:total>=5&&!p.starter?'backup':'unknown',score:null,currentStarts:0,currentGames:valid.cur,previousStarts:0,previousGames:valid.prev}}
+ const total=valid.cur+valid.prev,result={};for(const [k,o] of counts){let role='rotation',score=null;if(total>=3){const cr=valid.cur?o.cur/valid.cur:null,pr=valid.prev?o.prev/valid.prev:null;if(cr!==null&&pr!==null){const cw=valid.cur<5?.3:valid.cur<10?.6:.8;score=cr*cw+pr*(1-cw)}else score=cr??pr;if(score>=.60)role='main';else if(score>=.30)role='rotation';else role='backup'}result[k]={name:o.name,role,score,currentStarts:o.cur,currentGames:valid.cur,previousStarts:o.prev,previousGames:valid.prev}}
+ for(const p of (d.lineups?.[side]||[])){const k=roleKey(p.name);if(result[k])continue;result[k]={name:p.name,role:total>=5&&!p.starter?'backup':'rotation',score:null,currentStarts:0,currentGames:valid.cur,previousStarts:0,previousGames:valid.prev}}
  result.__meta={currentGames:valid.cur,previousGames:valid.prev,totalGames:total};state.lineupRoleCache.set(key,result);return result}
-async function hydrateLineupRoles(d){if(!((d.lineups.home||[]).length||(d.lineups.away||[]).length))return;try{const [home,away]=await Promise.all([buildTeamRoleMap(d,'home'),buildTeamRoleMap(d,'away')]);d.lineupRoles={home,away};if(state.currentDetail?.data===d){renderLineupPane(d);renderAnalysisPane(d)}}catch(e){d.lineupRoles={home:{},away:{}};if(state.currentDetail?.data===d){renderLineupPane(d);renderAnalysisPane(d)}}}
+async function hydrateLineupRoles(d){if(!((d.lineups.home||[]).length||(d.lineups.away||[]).length))return;try{const [home,away]=await Promise.all([buildTeamRoleMap(d,'home'),buildTeamRoleMap(d,'away')]);d.lineupRoles={home,away};if(state.currentDetail?.data===d){renderLineupPane(d);renderAnalysisPane(d);const h=d.teams.home,a=d.teams.away;$('#pane-injuries').innerHTML=`<div class="dcard"><div class="dtitle">${esc(h.name)} 결장/부상</div>${injuryPaneHtml(d,'home')}</div><div class="dcard"><div class="dtitle">${esc(a.name)} 결장/부상</div>${injuryPaneHtml(d,'away')}</div>`}}catch(e){d.lineupRoles={home:{},away:{}};if(state.currentDetail?.data===d){renderLineupPane(d);renderAnalysisPane(d)}}}
 function renderLineupPane(d){
  const source=d.lineupSource==='espn'?'ESPN 제공 선발 명단':d.lineupSource==='tdb'?'외부 제공 라인업 · 공식 여부 미확인':'라인업 미제공';
- $('#pane-lineups').innerHTML=`<div class="dcard"><div class="dtitle">라인업 · 피치</div><div class="lineup-source-badge">${esc(source)}</div><div class="dsub">빨강=주력 · 노랑=로테이션 · 회색=백업. 선수를 누르면 시장가치와 시즌별 기록을 확인할 수 있습니다.</div>${lineupPitchHtml(d)}<div class="source-note">ESPN 로스터에 선발 명단이 있으면 ESPN 제공 명단으로 표시합니다. 외부 fallback 라인업은 공식/예상 여부를 단정하지 않습니다.</div></div>`;
+ $('#pane-lineups').innerHTML=`<div class="dcard"><div class="dtitle">라인업 · 피치</div><div class="lineup-source-badge">${esc(source)}</div><div class="dsub">빨강=주력 · 노랑=로테이션(미분류 포함) · 회색=백업. 선수를 누르면 시장가치와 시즌별 기록을 확인할 수 있습니다.</div>${lineupPitchHtml(d)}<div class="source-note">ESPN 로스터에 선발 명단이 있으면 ESPN 제공 명단으로 표시합니다. 외부 fallback 라인업은 공식/예상 여부를 단정하지 않습니다.</div></div>`;
  wirePlayerClicks(d)
 }
 function wirePlayerClicks(d){document.querySelectorAll('#pane-lineups .player-open').forEach(el=>{el.onclick=()=>{const side=el.dataset.side||'',arr=d.lineups?.[side]||[],p=arr.find(x=>(el.dataset.pid&&String(x.id)===String(el.dataset.pid))||roleKey(x.name)===roleKey(el.dataset.pname));if(p)openPlayerModal(p,side,d)}})}
 function seasonLabelForPlayer(league,year){return CALENDAR_SEASON_LEAGUES.has(league)?String(year):`${year}/${String(year+1).slice(-2)}`}
 function snakeStat(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')}
 function statInt(v){if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):null}
-function parseAthleteSeasonStats(payload){
- if(!payload)return null;let cats=payload.categories||[];if(!cats.length&&payload.labels?.length&&payload.splits?.length)cats=[{labels:payload.labels,splits:payload.splits,name:'default'}];
- const groups=new Map();
- for(const cat of cats){const names=cat.names||cat.labels||[];for(const split of (cat.splits||[])){const key=String(split.name||split.displayName||split.category||split.value||'total'),g=groups.get(key)||{key,vals:{}};(split.stats||[]).forEach((v,i)=>{g.vals[snakeStat(names[i]||`stat${i}`)]=v});groups.set(key,g)}}
- const aliases={apps:['appearances','gamesplayed','games','matches','apps'],starts:['starts','gamesstarted','start'],goals:['goals','totalgoals'],assists:['assists','goalassists','totalassists']};
- const val=(g,list)=>{for(const k of list){if(g.vals[k]!==undefined){const n=statInt(g.vals[k]);if(n!==null)return n}}return null};
- let best=null,bestScore=-1;
- for(const g of groups.values()){const row={apps:val(g,aliases.apps),starts:val(g,aliases.starts),goals:val(g,aliases.goals),assists:val(g,aliases.assists)},known=Object.values(row).filter(v=>v!==null).length,pref=/total|overall|all|regular/i.test(g.key)?3:0,score=known*10+pref;if(score>bestScore){best={...row,split:g.key};bestScore=score}}
- return bestScore>=0?best:null
+function yearFromRef(v){const m=String(v||'').match(/seasons\/(20\d{2})|season[=/](20\d{2})/i);return Number(m?.[1]||m?.[2])||null}
+function findStatObject(node,best={score:-1,row:null},depth=0){
+ if(!node||depth>8)return best;
+ if(Array.isArray(node)){for(const x of node)findStatObject(x,best,depth+1);return best}
+ if(typeof node!=='object')return best;
+ const names=node.names||node.labels||node.statNames||[],vals=node.stats||node.values||[];
+ if(Array.isArray(names)&&Array.isArray(vals)&&names.length&&vals.length){
+  const map={};names.forEach((n,i)=>map[snakeStat(n)]=vals[i]);
+  const get=(keys)=>{for(const k of keys){if(map[k]!==undefined){const n=statInt(map[k]);if(n!==null)return n}}return null};
+  const row={apps:get(['appearances','gamesplayed','games','matches','apps']),starts:get(['starts','gamesstarted','start']),goals:get(['goals','totalgoals']),assists:get(['assists','goalassists','totalassists'])};
+  const score=Object.values(row).filter(v=>v!==null).length;if(score>best.score){best.score=score;best.row=row}
+ }
+ const direct={apps:null,starts:null,goals:null,assists:null};
+ const aliases={apps:['appearances','gamesPlayed','games','matches','apps'],starts:['starts','gamesStarted','start'],goals:['goals','totalGoals'],assists:['assists','goalAssists','totalAssists']};
+ for(const [k,keys] of Object.entries(aliases))for(const key of keys)if(node[key]!==undefined){const n=statInt(node[key]);if(n!==null){direct[k]=n;break}}
+ const dscore=Object.values(direct).filter(v=>v!==null).length;if(dscore>best.score){best.score=dscore;best.row=direct}
+ for(const v of Object.values(node))if(v&&typeof v==='object')findStatObject(v,best,depth+1);
+ return best
 }
-async function athleteStatsRaw(league,id,season){const key=`${league}|${id}|${season}`;if(state.playerStatsCache.has(key))return state.playerStatsCache.get(key);try{const d=await fetchJson(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/stats?season=${season}`);state.playerStatsCache.set(key,d);return d}catch(e){return null}}
-async function athleteGamelogCount(league,id,season){try{const d=await fetchJson(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/gamelog?season=${season}`),seen=new Set();for(const st of (d?.seasonTypes||[]))for(const cat of (st?.categories||[]))for(const ev of (cat?.events||[])){const eid=String(ev?.eventId||ev?.id||ev?.event?.id||'');if(eid)seen.add(eid)}if(!seen.size)for(const ev of (d?.events||[])){const eid=String(ev?.eventId||ev?.id||ev?.event?.id||'');if(eid)seen.add(eid)}return seen.size||null}catch(e){return null}}
-async function athleteOverview(league,id){try{return await fetchJson(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/overview`)}catch(e){return null}}
-function marketCacheKey(name,team){return`mv:v2:${roleKey(name)}:${roleKey(team)}`}
+async function coreAthleteProfile(league,id){
+ const key=`${league}|${id}`;if(state.coreAthleteCache.has(key))return state.coreAthleteCache.get(key);
+ const urls=[`${ESPN_CORE}/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}`,`${ESPN_CORE}/v2/sports/soccer/leagues/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}`];
+ let data=null;for(const u of urls){try{data=await fetchJson(u);if(data)break}catch(e){}}
+ state.coreAthleteCache.set(key,data);return data
+}
+async function coreStatisticsLog(league,id){
+ const key=`log|${league}|${id}`;if(state.corePlayerStatsCache.has(key))return state.corePlayerStatsCache.get(key);
+ const urls=[`${ESPN_CORE}/v3/sports/soccer/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/statisticslog`,`${ESPN_CORE}/v2/sports/soccer/leagues/${encodeURIComponent(league)}/athletes/${encodeURIComponent(id)}/statisticslog`];
+ let data=null;for(const u of urls){try{data=await fetchJson(u);if(data)break}catch(e){}}
+ state.corePlayerStatsCache.set(key,data);return data
+}
+async function fetchRefJson(ref){if(!ref)return null;try{return await fetchJson(String(ref).replace(/^http:/,'https:'))}catch(e){return null}}
+async function corePlayerSeasonRows(league,id,years){
+ const log=await coreStatisticsLog(league,id),rows=[];
+ if(!log)return rows;
+ const entries=log.entries||log.items||log.seasons||[];
+ for(const year of years){
+  let entry=(Array.isArray(entries)?entries:[]).find(e=>yearFromRef(e?.season?.$ref||e?.season?.ref||e?.season||e?.$ref)===year);
+  if(!entry)continue;
+  let best=findStatObject(entry).row;
+  if(!best||Object.values(best).every(v=>v===null)){
+   const stats=entry.statistics||entry.stats||[];
+   let ref=null;
+   if(Array.isArray(stats)){const total=stats.find(x=>/total|overall|regular/i.test(String(x?.type||x?.name||'')))||stats[0];ref=total?.statistics?.$ref||total?.statistics?.ref||total?.$ref||total?.ref}
+   else ref=stats?.$ref||stats?.ref;
+   const payload=await fetchRefJson(ref);if(payload)best=findStatObject(payload).row
+  }
+  if(best)rows.push({year,...best})
+ }
+ return rows
+}
+function roleStartsFallback(d,side,p,year){
+ const x=d.lineupRoles?.[side]?.[roleKey(p.name)];if(!x)return null;
+ if(year===d.seasonYear)return x.currentStarts??null;
+ if(year===d.seasonYear-1)return x.previousStarts??null;
+ return null
+}
+function marketCacheKey(name,team){return`mv:v3:${roleKey(name)}:${roleKey(team)}`}
 async function fetchExternalJson(url){
  const tries=[url,`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
- for(const u of tries){try{const r=await fetch(u,{headers:{Accept:'application/json'}});if(r.ok){const t=await r.text();const j=JSON.parse(t);if(j)return j}}catch(e){}}
+ for(const u of tries){try{const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),3500),r=await fetch(u,{headers:{Accept:'application/json'},signal:ctrl.signal});clearTimeout(tm);if(r.ok){const t=await r.text();const j=JSON.parse(t);if(j)return j}}catch(e){}}
  return null
 }
 function formatEuroMarket(v){
- if(v===null||v===undefined||v==='')return'미제공';
- if(typeof v==='string'&&/[€£$]/.test(v)&&/[kmb]/i.test(v)){const m=v.match(/([\\d,.]+)\\s*(bn|b|m|k)/i);if(m){const n=Number(m[1].replace(/,/g,'')),suffix=m[2].toLowerCase()==='bn'?'b':m[2].toLowerCase();return`€${Number.isInteger(n)?n:n.toFixed(1).replace(/\\.0$/,'')}${suffix}`}}
- const n=Number(String(v).replace(/[^0-9.-]/g,''));if(!Number.isFinite(n))return String(v);
- const compact=x=>x.toFixed(1).replace(/\\.0$/,'');
- if(Math.abs(n)>=1e9)return`€${compact(n/1e9)}b`;
- if(Math.abs(n)>=1e6)return`€${compact(n/1e6)}m`;
- if(Math.abs(n)>=1e3)return`€${Math.abs(n)>=100000?Math.round(n/1e3):compact(n/1e3)}k`;
- return`€${Math.round(n)}`
+ if(v===null||v===undefined||v==='')return'미제공';const n=Number(String(v).replace(/[^0-9.-]/g,''));if(!Number.isFinite(n))return String(v);
+ const compact=x=>x.toFixed(1).replace(/\.0$/,'');if(Math.abs(n)>=1e9)return`€${compact(n/1e9)}b`;if(Math.abs(n)>=1e6)return`€${compact(n/1e6)}m`;if(Math.abs(n)>=1e3)return`€${Math.abs(n)>=100000?Math.round(n/1e3):compact(n/1e3)}k`;return`€${Math.round(n)}`
 }
 async function fetchMarketValue(name,team){
  const key=marketCacheKey(name,team);if(state.marketValueCache.has(key))return state.marketValueCache.get(key);
- try{const raw=localStorage.getItem(key);if(raw){const x=JSON.parse(raw);if(Date.now()-(x.savedAt||0)<86400000){state.marketValueCache.set(key,x);return x}}}catch(e){}
- const direct=`https://transfermarkt-api.fly.dev/players/search/${encodeURIComponent(name)}?page_number=1`,data=await fetchExternalJson(direct);
- const results=data?.results||data?.players||[],tk=roleKey(team);let hit=results.find(x=>roleKey(x?.club?.name||x?.clubName||x?.club_name||'')===tk)||results.find(x=>roleKey(x?.club?.name||x?.clubName||x?.club_name||'').includes(tk))||results[0]||null;
- const value=hit?.marketValue??hit?.market_value??hit?.marketvalue??null,res={value,tmId:String(hit?.id||''),source:hit?'Transfermarkt':'미제공',savedAt:Date.now()};state.marketValueCache.set(key,res);try{localStorage.setItem(key,JSON.stringify(res))}catch(e){}return res
+ try{const raw=localStorage.getItem(key);if(raw){const x=JSON.parse(raw);if(Date.now()-(x.savedAt||0)<86400000*7){state.marketValueCache.set(key,x);return x}}}catch(e){}
+ const direct=`https://transfermarkt-api.fly.dev/players/search/${encodeURIComponent(name)}?page_number=1`,data=await fetchExternalJson(direct),results=data?.results||data?.players||[],tk=roleKey(team);
+ let hit=results.find(x=>roleKey(x?.club?.name||x?.clubName||x?.club_name||'')===tk)||results.find(x=>roleKey(x?.club?.name||x?.clubName||x?.club_name||'').includes(tk))||results[0]||null;
+ const res={value:hit?.marketValue??hit?.market_value??hit?.marketvalue??null,tmId:String(hit?.id||''),savedAt:Date.now()};state.marketValueCache.set(key,res);try{localStorage.setItem(key,JSON.stringify(res))}catch(e){}return res
 }
 async function fetchTransfermarktStats(tmId){
- if(!tmId)return[];
- const data=await fetchExternalJson(`https://transfermarkt-api.fly.dev/players/${encodeURIComponent(tmId)}/stats`);
- return Array.isArray(data?.stats)?data.stats:[]
+ if(!tmId)return[];const data=await fetchExternalJson(`https://transfermarkt-api.fly.dev/players/${encodeURIComponent(tmId)}/stats`);return Array.isArray(data?.stats)?data.stats:[]
 }
-function leagueCompetitionMatch(league,name){
- const n=String(name||'').toLowerCase();
- const map={'eng.1':['premier league'],'esp.1':['laliga','la liga'],'ita.1':['serie a'],'ger.1':['bundesliga'],'fra.1':['ligue 1'],'eng.2':['championship'],'uefa.champions':['champions league'],'uefa.europa':['europa league']};
- const words=map[league];return !words||words.some(x=>n.includes(x))
-}
-async function fetchEspnCareerStarts(id){
- const url=`https://www.espn.com/soccer/player/stats/_/id/${encodeURIComponent(id)}`;
- const tries=[`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
- for(const u of tries){try{const r=await fetch(u);if(!r.ok)continue;const html=await r.text(),doc=new DOMParser().parseFromString(html,'text/html'),tables=[...doc.querySelectorAll('table')],seasonRows=[],statRows=[];for(const table of tables){const text=table.textContent||'';if(/English Premier League|LaLiga|Serie A|Bundesliga|Ligue 1/i.test(text)){for(const tr of table.querySelectorAll('tbody tr')){const t=tr.textContent||'',m=t.match(/(20\\d{2})[-/]?(\\d{2})?/);if(m)seasonRows.push({year:Number(m[1]),text:t})}}const heads=[...table.querySelectorAll('thead th')].map(x=>(x.textContent||'').trim().toUpperCase());if(heads.includes('STRT')){const si=heads.indexOf('STRT');for(const tr of table.querySelectorAll('tbody tr')){const cells=[...tr.querySelectorAll('td')].map(x=>(x.textContent||'').trim());if(cells.length>si)statRows.push({starts:statInt(cells[si])})}}}if(seasonRows.length&&statRows.length){const out={};seasonRows.slice(0,statRows.length).forEach((x,i)=>out[x.year]=statRows[i]?.starts??null);return out}}catch(e){}}
- return{}
-}
+function leagueCompetitionMatch(league,name){const n=String(name||'').toLowerCase(),map={'eng.1':['premier league'],'esp.1':['laliga','la liga'],'ita.1':['serie a'],'ger.1':['bundesliga'],'fra.1':['ligue 1'],'eng.2':['championship'],'uefa.champions':['champions league'],'uefa.europa':['europa league']},words=map[league];return !words||words.some(x=>n.includes(x))}
 let playerHistoryActive=false;
 function hidePlayerModal(){$('#playerModal').classList.add('hidden');$('#playerModal').setAttribute('aria-hidden','true');playerHistoryActive=false}
 function closePlayerModal(){if(playerHistoryActive&&history.state?.soccerPlayer)history.back();else hidePlayerModal()}
+function playerRowsHtml(rows,d){
+ const usable=rows.filter(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null));
+ return usable.length?`<table class="player-stat-table"><thead><tr><th>시즌</th><th>출장</th><th>선발</th><th>득점</th><th>도움</th></tr></thead><tbody>${usable.map(r=>`<tr><td>${esc(seasonLabelForPlayer(d.league,r.year))}</td><td>${r.apps??'-'}</td><td>${r.starts??'-'}</td><td>${r.goals??'-'}</td><td>${r.assists??'-'}</td></tr>`).join('')}</tbody></table>`:'<div class="compact-empty">시즌 기록을 확인하지 못했습니다.</div>'
+}
 async function openPlayerModal(p,side,d){
  if($('#playerModal').classList.contains('hidden')){history.pushState({soccerPlayer:true,playerId:String(p.id||'')},'',location.href);playerHistoryActive=true}
  $('#playerModal').classList.remove('hidden');$('#playerModal').setAttribute('aria-hidden','false');
- const team=d.teams?.[side]||{},role=d.lineupRoles?.[side]?.[roleKey(p.name)]?.role||'unknown',roleTxt=roleLabel(role);
- $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${esc(p.jersey||'?')}</div><div><div class="player-name">${esc(p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||'포지션 미표기')}${roleTxt?` · ${esc(roleTxt)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v">…</div></div></div><div class="loading-lines">시즌 기록을 불러오는 중…</div>`;
- const marketPromise=fetchMarketValue(p.name,team.name||'');
- if(!p.id){const mv=await marketPromise;$('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${esc(p.jersey||'?')}</div><div><div class="player-name">${esc(p.name)}</div><div class="player-meta">${esc(team.name||'')}${roleTxt?` · ${esc(roleTxt)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v">${esc(formatEuroMarket(mv.value))}</div></div></div><div class="compact-empty">선수 ID가 없어 시즌 기록을 불러오지 못했습니다.</div>`;return}
- const years=[];for(let y=d.seasonYear;y>=d.seasonYear-4;y--)years.push(y);
- const [overview,mv,espnStarts]=await Promise.all([athleteOverview(d.league,p.id),marketPromise,fetchEspnCareerStarts(p.id)]);
- const [tmStats,espnRows]=await Promise.all([
-  fetchTransfermarktStats(mv.tmId),
-  Promise.all(years.map(async y=>{const raw=await athleteStatsRaw(d.league,p.id,y),st=parseAthleteSeasonStats(raw)||{apps:null,starts:null,goals:null,assists:null};if(st.apps===null)st.apps=await athleteGamelogCount(d.league,p.id,y);return{year:y,...st}}))
- ]);
- const tmByYear={};for(const x of tmStats){if(!leagueCompetitionMatch(d.league,x?.competitionName||x?.competition_name))continue;const y=Number(String(x?.seasonId||x?.season_id||'').match(/20\\d{2}/)?.[0]);if(!y)continue;tmByYear[y]={apps:statInt(x?.appearances),goals:statInt(x?.goals),assists:statInt(x?.assists)}}
- const rows=years.map(y=>{const e=espnRows.find(r=>r.year===y)||{},t=tmByYear[y]||{};return{year:y,apps:t.apps??e.apps??null,starts:espnStarts[y]??e.starts??null,goals:t.goals??e.goals??null,assists:t.assists??e.assists??null}});
- const ath=overview?.athlete||{},img=ath?.headshot?.href||ath?.headshot||'',age=ath?.age||'',foot=ath?.preferredFoot||'',usable=rows.filter(r=>[r.apps,r.starts,r.goals,r.assists].some(v=>v!==null));
- $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${img?`<img src="${esc(img)}" alt="">`:esc(p.jersey||'?')}</div><div><div class="player-name">${esc(ath?.displayName||p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||ath?.position?.abbreviation||'포지션 미표기')}${roleTxt?` · ${esc(roleTxt)}`:''}${age?` · ${esc(age)}세`:''}${foot?` · ${esc(foot)}`:''}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v">${esc(formatEuroMarket(mv.value))}</div></div></div><div class="dtitle">시즌별 기록 · ${esc(LEAGUE_NAME.get(d.league)||d.league)}</div>${usable.length?`<table class="player-stat-table"><thead><tr><th>시즌</th><th>출장</th><th>선발</th><th>득점</th><th>도움</th></tr></thead><tbody>${usable.map(r=>`<tr><td>${esc(seasonLabelForPlayer(d.league,r.year))}</td><td>${r.apps??'-'}</td><td>${r.starts??'-'}</td><td>${r.goals??'-'}</td><td>${r.assists??'-'}</td></tr>`).join('')}</tbody></table>`:'<div class="compact-empty">시즌 기록을 확인하지 못했습니다.</div>'}<div class="player-source">출장·득점·도움은 ESPN/Transfermarkt 공개 기록을 교차 사용하고, 선발은 ESPN 기록을 우선합니다. 시장가치는 €86m / €498k처럼 표시합니다.</div>`
+ const team=d.teams?.[side]||{},role=d.lineupRoles?.[side]?.[roleKey(p.name)]?.role||'rotation',roleTxt=roleLabel(role),years=[];for(let y=d.seasonYear;y>=d.seasonYear-4;y--)years.push(y);
+ const immediate=years.slice(0,2).map(y=>({year:y,apps:null,starts:roleStartsFallback(d,side,p,y),goals:null,assists:null}));
+ $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${esc(p.jersey||'?')}</div><div><div class="player-name">${esc(p.name)}</div><div class="player-meta">${esc(team.name||'')} · ${esc(p.pos||'포지션 미표기')} · ${esc(roleTxt)}</div></div><div class="market-value"><div class="k">시장가치</div><div class="v" id="playerMarket">불러오는 중</div></div></div><div class="dtitle">시즌별 기록 · ${esc(LEAGUE_NAME.get(d.league)||d.league)}</div><div id="playerStatsFast">${playerRowsHtml(immediate,d)}</div><div class="player-source">선수 기록은 ESPN Core 통계를 우선 사용합니다. 시장가치는 별도로 불러와 기록 표시를 기다리게 하지 않습니다.</div>`;
+ if(!p.id){$('#playerStatsFast').innerHTML='<div class="compact-empty">선수 ID가 없어 기록을 불러오지 못했습니다.</div>';return}
+ // ESPN Core 기록을 먼저 표시
+ Promise.all([coreAthleteProfile(d.league,p.id),corePlayerSeasonRows(d.league,p.id,years)]).then(([profile,coreRows])=>{
+   if($('#playerModal').classList.contains('hidden'))return;
+   const byYear=new Map(coreRows.map(r=>[r.year,r])),rows=years.map(y=>{const r=byYear.get(y)||{};return{year:y,apps:r.apps??null,starts:r.starts??roleStartsFallback(d,side,p,y),goals:r.goals??null,assists:r.assists??null}});
+   const ath=profile?.athlete||profile||{},img=ath?.headshot?.href||ath?.headshot||'',age=ath?.age||'',foot=ath?.preferredFoot||'';
+   const avatar=document.querySelector('#playerCardBody .player-avatar');if(avatar&&img)avatar.innerHTML=`<img src="${esc(img)}" alt="">`;
+   const meta=document.querySelector('#playerCardBody .player-meta');if(meta)meta.innerHTML=`${esc(team.name||'')} · ${esc(p.pos||ath?.position?.abbreviation||'포지션 미표기')} · ${esc(roleTxt)}${age?` · ${esc(age)}세`:''}${foot?` · ${esc(foot)}`:''}`;
+   $('#playerStatsFast').innerHTML=playerRowsHtml(rows,d)
+ }).catch(()=>{});
+ // 시장가치/보조 통계는 뒤에서 로드
+ fetchMarketValue(p.name,team.name||'').then(async mv=>{
+   const el=document.getElementById('playerMarket');if(el)el.textContent=formatEuroMarket(mv.value);
+   if(!mv.tmId)return;
+   const tmStats=await fetchTransfermarktStats(mv.tmId);if(!tmStats.length||$('#playerModal').classList.contains('hidden'))return;
+   const tmByYear={};for(const x of tmStats){if(!leagueCompetitionMatch(d.league,x?.competitionName||x?.competition_name))continue;const y=Number(String(x?.seasonId||x?.season_id||'').match(/20\d{2}/)?.[0]);if(!y)continue;tmByYear[y]={apps:statInt(x?.appearances),goals:statInt(x?.goals),assists:statInt(x?.assists)}}
+   const currentRows=[...document.querySelectorAll('#playerStatsFast tbody tr')];if(!currentRows.length)return;
+   currentRows.forEach(tr=>{const label=tr.cells?.[0]?.textContent||'',year=Number(label.slice(0,4)),t=tmByYear[year];if(!t)return;if(t.apps!==null)tr.cells[1].textContent=t.apps;if(t.goals!==null)tr.cells[3].textContent=t.goals;if(t.assists!==null)tr.cells[4].textContent=t.assists})
+ }).catch(()=>{const el=document.getElementById('playerMarket');if(el)el.textContent='미제공'});
 }
 function statsHtml(rows,teams){if(!rows?.length)return'<div class="empty">경기 통계 데이터 미제공</div>';return`<table class="stat-table"><tbody>${rows.map(r=>`<tr><td class="${r.percent?'pct':''}">${esc(r.home)}</td><td>${esc(r.label)}</td><td class="${r.percent?'pct':''}">${esc(r.away)}</td></tr>`).join('')}</tbody></table><div class="source-note">${esc(teams.home.name)} ← 통계 → ${esc(teams.away.name)}</div>`}
 function ymd2(d){return d.toISOString().slice(0,10).replaceAll('-','')}
@@ -553,20 +628,44 @@ function seasonWindow(league,year){if(CALENDAR_SEASON_LEAGUES.has(league))return
 function monthWindows(start,end){const out=[];let cur=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),1));while(cur<=end){const ms=new Date(Date.UTC(cur.getUTCFullYear(),cur.getUTCMonth(),1)),me=new Date(Date.UTC(cur.getUTCFullYear(),cur.getUTCMonth()+1,0));out.push([ms<start?start:ms,me>end?end:me]);cur=new Date(Date.UTC(cur.getUTCFullYear(),cur.getUTCMonth()+1,1))}return out}
 function primaryOfficial(officials){if(!officials?.length)return null;return officials.find(o=>/^(referee|주심)$/i.test(String(o.role||'').trim()))||officials.find(o=>/referee|주심/i.test(o.role||'')&&!/assistant|fourth|var/i.test(o.role||''))||officials[0]}
 function cardCountsFromSummary(summary,teams){const rows=parseMatchStats(summary,teams),find=(label,side)=>{const r=rows.find(x=>x.label===label),n=statNumeric(r?.[side]);return n};const hy=find('옐로카드','home'),ay=find('옐로카드','away'),hr=find('레드카드','home'),ar=find('레드카드','away');if([hy,ay,hr,ar].some(v=>v!==null))return{yellow:(hy||0)+(ay||0),red:(hr||0)+(ar||0)};const events=parseEspnTimeline(summary),seen=new Set();let yellow=0,red=0;for(const e of events){const text=String(e.text||''),kind=/second yellow|red card|레드/i.test(text)?'R':/yellow card|옐로/i.test(text)?'Y':'';if(!kind)continue;const player=(text.match(/(?:Yellow Card|Red Card)\s+([^,(]+)/i)?.[1]||text).trim().toLowerCase(),key=`${e.time}|${kind}|${player}`;if(seen.has(key))continue;seen.add(key);if(kind==='R')red++;else yellow++}return{yellow,red}}
-function refStoreKey(league,year,name){return`soccerRefereeSeasonV6:${league}:${year}:${roleKey(name)}`}
+function refStoreKey(league,year,name){return`soccerRefereeSeasonV7:${league}:${year}:${roleKey(name)}`}
 function readRefSeasonCache(league,year,name){try{const raw=localStorage.getItem(refStoreKey(league,year,name));if(!raw)return null;const x=JSON.parse(raw),age=Date.now()-(x.savedAt||0),isOld=CALENDAR_SEASON_LEAGUES.has(league)?year<new Date().getFullYear():year<new Date().getFullYear()-1;if(isOld||age<12*3600000)return x}catch(e){}return null}
 function saveRefSeasonCache(league,year,name,x){try{localStorage.setItem(refStoreKey(league,year,name),JSON.stringify({...x,savedAt:Date.now()}))}catch(e){}}
-async function coreOfficials(league,eventId){try{return await fetchJson(`${ESPN_CORE}/v2/sports/soccer/leagues/${encodeURIComponent(league)}/events/${encodeURIComponent(eventId)}/competitions/${encodeURIComponent(eventId)}/officials?limit=20`)}catch(e){return null}}
+async function coreOfficials(league,eventId){
+ const key=`${league}|${eventId}`;if(state.officialEventCache.has(key))return state.officialEventCache.get(key);
+ try{const raw=localStorage.getItem(`official:v2:${key}`);if(raw){const x=JSON.parse(raw);state.officialEventCache.set(key,x);return x}}catch(e){}
+ try{const d=await fetchJson(`${ESPN_CORE}/v2/sports/soccer/leagues/${encodeURIComponent(league)}/events/${encodeURIComponent(eventId)}/competitions/${encodeURIComponent(eventId)}/officials?limit=20`);state.officialEventCache.set(key,d);try{localStorage.setItem(`official:v2:${key}`,JSON.stringify(d))}catch(e){}return d}catch(e){return null}
+}
 function parseCoreOfficials(raw){const arr=raw?.items||[],out=[];for(const x of arr){const o=x?.official||x,name=o?.displayName||o?.fullName||x?.displayName||x?.fullName||'',pos=x?.position||o?.position||{},role=pos?.displayName||pos?.name||pos?.type||'';if(name)out.push({name,role,order:Number(x?.order||0)})}return out}
 function primaryCoreOfficial(raw){const a=parseCoreOfficials(raw);if(!a.length)return null;return a.find(x=>/^(referee|주심)$/i.test(String(x.role||'').trim()))||a.find(x=>/referee|주심/i.test(x.role||'')&&!/assistant|fourth|var/i.test(x.role||''))||a.sort((x,y)=>x.order-y.order)[0]}
-async function seasonEvents(league,year){const key=`events|${league}|${year}`;if(state.refSeasonCache.has(key))return state.refSeasonCache.get(key);const [start,end]=seasonWindow(league,year),all=[];try{const full=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard?dates=${isoDateUTC(start)}-${isoDateUTC(end)}&limit=1000`);all.push(...(full?.events||[]))}catch(e){}if(all.length<20){const ranges=monthWindows(start,end);for(let i=0;i<ranges.length;i+=6){const batch=ranges.slice(i,i+6),boards=await Promise.all(batch.map(async([a,b])=>{try{return await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard?dates=${isoDateUTC(a)}-${isoDateUTC(b)}&limit=1000`)}catch(e){return null}}));for(const b of boards)all.push(...(b?.events||[]))}}const seen=new Set(),events=all.filter(ev=>ev?.id&&!seen.has(String(ev.id))&&(seen.add(String(ev.id)),true)&&ev?.status?.type?.state!=='pre').sort((a,b)=>new Date(a.date)-new Date(b.date));state.refSeasonCache.set(key,events);return events}
+async function seasonEvents(league,year){const key=`events|${league}|${year}`;if(state.refSeasonCache.has(key))return state.refSeasonCache.get(key);const [start,end]=seasonWindow(league,year),all=[];try{let full=null;try{full=await fetchJson(`${ESPN}/apis/site/v3/sports/soccer/${encodeURIComponent(league)}/scoreboard?dates=${isoDateUTC(start)}-${isoDateUTC(end)}&limit=1000`)}catch(e){}if(!full?.events?.length)full=await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard?dates=${isoDateUTC(start)}-${isoDateUTC(end)}&limit=1000`);all.push(...(full?.events||[]))}catch(e){}if(all.length<20){const ranges=monthWindows(start,end);for(let i=0;i<ranges.length;i+=6){const batch=ranges.slice(i,i+6),boards=await Promise.all(batch.map(async([a,b])=>{try{return await fetchJson(`${ESPN}/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard?dates=${isoDateUTC(a)}-${isoDateUTC(b)}&limit=1000`)}catch(e){return null}}));for(const b of boards)all.push(...(b?.events||[]))}}const seen=new Set(),events=all.filter(ev=>ev?.id&&!seen.has(String(ev.id))&&(seen.add(String(ev.id)),true)&&ev?.status?.type?.state!=='pre').sort((a,b)=>new Date(a.date)-new Date(b.date));state.refSeasonCache.set(key,events);return events}
+function embeddedEventOfficials(ev){
+ const c=ev?.competitions?.[0]||{},arr=c?.officials||[];
+ return arr.map(o=>({name:o?.displayName||o?.fullName||o?.official?.displayName||'',role:o?.position?.displayName||o?.position?.name||o?.type?.text||o?.role||''})).filter(x=>x.name)
+}
 async function buildRefereeSeason(league,year,name,onProgress){
  const cache=readRefSeasonCache(league,year,name);if(cache)return cache;
  const events=await seasonEvents(league,year),target=roleKey(name),candidates=[],fallback=[],total=events.length;let scanned=0,failed=0;
- for(let i=0;i<events.length;i+=28){const batch=events.slice(i,i+28),rows=await Promise.all(batch.map(async ev=>{const off=await coreOfficials(league,ev.id);if(!off)return{ev,failed:true};const list=parseCoreOfficials(off),official=primaryCoreOfficial(off),ambiguous=!list.length||!list.some(x=>String(x.role||'').trim());return{ev,official,ambiguous,list}}));for(const row of rows){scanned++;if(row.failed){failed++;fallback.push(row.ev);continue}if(row.official&&roleKey(row.official.name)===target)candidates.push(row.ev);else if(row.ambiguous||row.list.some(x=>roleKey(x.name)===target))fallback.push(row.ev)}if(onProgress)onProgress({phase:'officials',year,scanned,total,found:candidates.length,failed})}
- if(fallback.length){for(let i=0;i<fallback.length;i+=12){const batch=fallback.slice(i,i+12),rows=await Promise.all(batch.map(async ev=>{try{const sum=(await fetchSummary(ev.id,league)).data;if(!sum)return null;const off=primaryOfficial(parseOfficials(sum));return off&&roleKey(off.name)===target?ev:null}catch(e){return null}}));for(const ev of rows)if(ev&&!candidates.some(x=>String(x.id)===String(ev.id)))candidates.push(ev);if(onProgress)onProgress({phase:'verify',year,done:Math.min(i+12,fallback.length),totalVerify:fallback.length,found:candidates.length,scanned,total,failed})}}
- const matches=[];for(let i=0;i<candidates.length;i+=10){const batch=candidates.slice(i,i+10),rows=await Promise.all(batch.map(async ev=>{try{const sum=(await fetchSummary(ev.id,league)).data;if(!sum)return null;const teams=summaryTeams(sum,ev),cards=cardCountsFromSummary(sum,teams);return{date:ev.date,home:teams.home.name,away:teams.away.name,hs:teams.home.score,as:teams.away.score,yellow:cards.yellow,red:cards.red,eventId:String(ev.id)}}catch(e){return null}}));for(const row of rows)if(row)matches.push(row);if(onProgress)onProgress({phase:'cards',year,done:Math.min(i+10,candidates.length),totalCards:candidates.length,found:candidates.length,scanned,total,failed})}
- matches.sort((a,b)=>new Date(b.date)-new Date(a.date));const res={league,year,name,matches,scanned,total,failed,found:candidates.length};saveRefSeasonCache(league,year,name,res);return res
+ // scoreboard에 officials가 있으면 즉시 사용하고, 없는 경기만 Core officials 조회
+ for(let i=0;i<events.length;i+=48){
+  const batch=events.slice(i,i+48),rows=await Promise.all(batch.map(async ev=>{
+   const embedded=embeddedEventOfficials(ev);if(embedded.length)return{ev,list:embedded,embedded:true};
+   const off=await coreOfficials(league,ev.id);if(!off)return{ev,failed:true};
+   return{ev,list:parseCoreOfficials(off)}
+  }));
+  for(const row of rows){scanned++;if(row.failed){failed++;fallback.push(row.ev);continue}const primary=primaryOfficial(row.list||[]);if(primary&&roleKey(primary.name)===target)candidates.push(row.ev);else if(!(row.list||[]).length)fallback.push(row.ev)}
+  if(onProgress)onProgress({phase:'officials',year,scanned,total,found:candidates.length,failed})
+ }
+ // 카드 집계는 찾은 경기만 먼저 처리해 화면을 최대한 빨리 완성
+ const matches=[];for(let i=0;i<candidates.length;i+=16){
+  const batch=candidates.slice(i,i+16),rows=await Promise.all(batch.map(async ev=>{try{const sum=(await fetchSummary(ev.id,league)).data;if(!sum)return null;const teams=summaryTeams(sum,ev),cards=cardCountsFromSummary(sum,teams);return{date:ev.date,home:teams.home.name,away:teams.away.name,hs:teams.home.score,as:teams.away.score,yellow:cards.yellow,red:cards.red,eventId:String(ev.id)}}catch(e){return null}}));
+  for(const row of rows)if(row)matches.push(row);if(onProgress)onProgress({phase:'cards',year,done:Math.min(i+16,candidates.length),totalCards:candidates.length,found:candidates.length,scanned,total,failed})
+ }
+ // 실패/애매한 경기 검증은 소수일 때만 수행
+ if(fallback.length&&fallback.length<=30){
+  for(let i=0;i<fallback.length;i+=12){const batch=fallback.slice(i,i+12),rows=await Promise.all(batch.map(async ev=>{try{const sum=(await fetchSummary(ev.id,league)).data;if(!sum)return null;const off=primaryOfficial(parseOfficials(sum));if(!off||roleKey(off.name)!==target)return null;const teams=summaryTeams(sum,ev),cards=cardCountsFromSummary(sum,teams);return{date:ev.date,home:teams.home.name,away:teams.away.name,hs:teams.home.score,as:teams.away.score,yellow:cards.yellow,red:cards.red,eventId:String(ev.id)}}catch(e){return null}}));for(const row of rows)if(row&&!matches.some(x=>x.eventId===row.eventId))matches.push(row);if(onProgress)onProgress({phase:'verify',year,done:Math.min(i+12,fallback.length),totalVerify:fallback.length,found:matches.length,scanned,total,failed})}
+ }
+ matches.sort((a,b)=>new Date(b.date)-new Date(a.date));const res={league,year,name,matches,scanned,total,failed,found:matches.length};saveRefSeasonCache(league,year,name,res);return res
 }
 function refSeasonCompareHtml(current,previous){
  if(!current||!previous||current.n<5||previous.n<5)return'<div class="ref-tendency"><b>시즌 비교</b> · 표본이 부족해 비교 평가는 보류합니다.</div>';
@@ -584,8 +683,8 @@ async function showRefereeHistory(name,targetId){const box=document.getElementBy
  const run=async(kind,title,year,slotId)=>{const slot=document.getElementById(slotId),update=p=>{if(!slot)return;if(p.phase==='officials')slot.innerHTML=refLoadingHtml(title,year,d.league,`주심 배정 ${p.scanned}/${p.total} · 일치 ${p.found}경기`);else if(p.phase==='verify')slot.innerHTML=refLoadingHtml(title,year,d.league,`누락 배정 검증 ${p.done}/${p.totalVerify} · 일치 ${p.found}경기`);else slot.innerHTML=refLoadingHtml(title,year,d.league,`카드 집계 ${p.done}/${p.totalCards}`)};try{const idx=await buildRefereeSeason(d.league,year,name,update);results[kind]=idx;const stats=refSeasonStats(idx,name,kind==='current'?cutoff:null);if(slot)slot.innerHTML=refSeasonHtml(title,year,stats,idx,d.league);renderRecent()}catch(e){if(slot)slot.innerHTML=`<div class="badbox">${esc(title)} 심판 기록 계산 실패: ${esc(e.message)}</div>`}};
  await Promise.all([run('current','올 시즌',currentYear,'ref-current-slot'),run('previous','지난 시즌',previousYear,'ref-prev-slot')])}
 function lineupRoleCounts(d,side){
- const starters=(d.lineups?.[side]||[]).filter(x=>x.starter),roles=d.lineupRoles?.[side]||{},out={main:0,rotation:0,backup:0,unknown:0,total:starters.length};
- for(const p of starters){const r=roles[roleKey(p.name)]?.role||'unknown';out[r]=(out[r]||0)+1}return out
+ const starters=(d.lineups?.[side]||[]).filter(x=>x.starter),roles=d.lineupRoles?.[side]||{},out={main:0,rotation:0,backup:0,total:starters.length};
+ for(const p of starters){const r=roles[roleKey(p.name)]?.role||'rotation';out[r]=(out[r]||0)+1}return out
 }
 function fmtMaybe(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d):'-'}
 function makePrematchAnalysis(d){
@@ -595,7 +694,7 @@ function makePrematchAnalysis(d){
  // 1. 표본 / 흐름
  if(hn>=5&&an>=5){
    const ppgDiff=(h5.ppg||0)-(a5.ppg||0),goalDiff=((h5.gf||0)-(h5.ga||0))/hn-(((a5.gf||0)-(a5.ga||0))/an);
-   let text=`리그 최근 5경기 기준 ${h.name} ${h5.w}승 ${h5.d}무 ${h5.l}패, ${a.name} ${a5.w}승 ${a5.d}무 ${a5.l}패. `;
+   const hwdl={w:h5.games.filter(g=>g.result==='W').length,d:h5.games.filter(g=>g.result==='D').length,l:h5.games.filter(g=>g.result==='L').length},awdl={w:a5.games.filter(g=>g.result==='W').length,d:a5.games.filter(g=>g.result==='D').length,l:a5.games.filter(g=>g.result==='L').length};let text=`리그 최근 5경기 기준 ${h.name} ${hwdl.w}승 ${hwdl.d}무 ${hwdl.l}패, ${a.name} ${awdl.w}승 ${awdl.d}무 ${awdl.l}패. `;
    if(ppgDiff>.45)text+=`${h.name}의 최근 결과 흐름이 우위입니다.`;
    else if(ppgDiff<-.45)text+=`${a.name}의 최근 결과 흐름이 우위입니다.`;
    else text+='승점 흐름만 보면 큰 격차는 아닙니다.';
@@ -700,6 +799,17 @@ function recentPreviewList(a){
  return`${recordList(first)}${rest.length?`<details class="recent-details"><summary>전체 ${a.length}경기 보기</summary>${recordList(rest)}</details>`:''}`
 }
 function lineupTeamHtml(name,formation,arr){if(!arr?.length)return`<div class="lineup-team"><div class="lineup-head"><span>${esc(name)}</span></div><div class="empty">공식 라인업 미발표 또는 데이터 미제공</div></div>`;const starters=arr.filter(x=>x.starter),subs=arr.filter(x=>!x.starter);return`<div class="lineup-team"><div class="lineup-head"><span>${esc(name)}</span><span>${formation?`포메이션 ${esc(formation)}`:''}</span></div><div class="dsub">선발</div><div class="player-list">${starters.map(p=>`<div class="player"><small>${esc(p.jersey||p.pos||'')}</small>${esc(p.name)}</div>`).join('')}</div>${subs.length?`<div class="dsub" style="margin-top:10px">교체 명단</div><div class="player-list">${subs.map(p=>`<div class="player"><small>${esc(p.jersey||p.pos||'')}</small>${esc(p.name)}</div>`).join('')}</div>`:''}</div>`}
+function missingMainPlayers(d,side){
+ const roles=d.lineupRoles?.[side]||{},squad=new Set((d.lineups?.[side]||[]).map(p=>roleKey(p.name))),out=[];
+ for(const [k,v] of Object.entries(roles)){if(k==='__meta'||!v||v.role!=='main'||squad.has(k))continue;out.push(v.name||k)}
+ return out.slice(0,8)
+}
+function injuryPaneHtml(d,side){
+ const team=d.teams[side],info=d.injuries?.[side],missing=missingMainPlayers(d,side);
+ let base=injuriesHtml(info);
+ if(missing.length)base+=`<div class="dsub" style="margin-top:12px">주요 경기명단 제외 · 사유 미확인</div><div class="injury-list">${missing.map(n=>`<div class="injury"><span>${esc(n)}</span><span>명단 제외</span></div>`).join('')}</div><div class="sample-note">최근 선발 비중이 높았지만 이번 경기 명단에 없는 선수입니다. 부상·징계라고 단정하지 않습니다.</div>`;
+ return base
+}
 function injuriesHtml(info){if(!info?.available)return'<div class="compact-empty">결장/부상 정보를 확인하지 못했습니다.</div>';if(!info?.items?.length)return'<div class="compact-empty">확인된 결장/부상 선수가 없습니다.</div>';return`<div class="injury-list">${info.items.map(x=>`<div class="injury"><span>${esc(x.name)}</span><span>${esc(x.status||'상태 미표기')}</span></div>`).join('')}</div>`}
 function eventTextKo(t){return String(t||'').replace(/second yellow card/ig,'경고 누적 퇴장').replace(/yellow card/ig,'옐로카드').replace(/red card/ig,'레드카드').replace(/substitution/ig,'교체').replace(/own goal/ig,'자책골').replace(/penalty/ig,'페널티').replace(/goal/ig,'골')}
 function oddsHtml(arr,teams){if(!arr?.length)return'<div class="empty">현재 ESPN 응답에 배당 정보가 없습니다.</div>';return arr.map(o=>`<div class="odds-book"><div class="odds-book-head">${esc(o.provider||o.details||'ESPN 제공 배당')}</div><div class="odds-line"><div class="odd odd-safe"><div class="k">${esc(teams.home.name)}</div><div class="v">${esc(oddsText(o.home))}</div></div><div class="odd odd-safe"><div class="k">무승부</div><div class="v">${esc(oddsText(o.draw))}</div></div><div class="odd odd-safe"><div class="k">${esc(teams.away.name)}</div><div class="v">${esc(oddsText(o.away))}</div></div></div><div class="grid2" style="margin-top:6px"><div class="odd"><div class="k">핸디캡/라인</div><div class="v">${esc(oddsText(o.spread))}</div></div><div class="odd"><div class="k">O/U 기준점</div><div class="v">${esc(oddsText(o.ou))}</div></div></div></div>`).join('')}
@@ -722,7 +832,7 @@ function renderDetail(d){
  $('#pane-stats').innerHTML=`<div class="dcard"><div class="dtitle">경기 통계</div>${statsHtml(d.matchStats,d.teams)}<div class="source-note">비율 통계는 %로 환산하고, 유효슈팅률·패스 성공률은 가능한 경우 원자료로 다시 계산합니다.</div></div><div class="dcard"><div class="dtitle">홈/원정 분리 기록</div><div class="split-grid"><div class="split-card"><div class="split-head">${esc(h.name)} 홈</div>${splitHtml(d.homeSplit)}</div><div class="split-card"><div class="split-head">${esc(a.name)} 원정</div>${splitHtml(d.awaySplit)}</div></div></div>`;
  renderRecordsPane(d);
  renderLineupPane(d);
- $('#pane-injuries').innerHTML=`<div class="dcard"><div class="dtitle">${esc(h.name)} 결장/부상</div>${injuriesHtml(d.injuries.home)}</div><div class="dcard"><div class="dtitle">${esc(a.name)} 결장/부상</div>${injuriesHtml(d.injuries.away)}</div>`;
+ $('#pane-injuries').innerHTML=`<div class="dcard"><div class="dtitle">${esc(h.name)} 결장/부상</div>${injuryPaneHtml(d,'home')}</div><div class="dcard"><div class="dtitle">${esc(a.name)} 결장/부상</div>${injuryPaneHtml(d,'away')}</div>`;
  const primary=primaryOfficial(d.officials),others=d.officials.filter(o=>!primary||o.name!==primary.name),refHtml=primary?`<button class="ref-btn" data-refname="${esc(primary.name)}" data-reftarget="refhist-main"><span><b>${esc(primary.name)}</b><br><small>${esc(primary.role||'주심')}</small></span><span class="role">시즌 기록 보기 ›</span></button><div id="refhist-main" class="ref-history"></div>${others.length?`<div class="sample-note">기타 심판진: ${others.map(o=>esc(o.name)).join(' · ')}</div>`:''}`:'<div class="empty">ESPN / 경기 데이터에서 주심을 확인하지 못했습니다.</div>';
  $('#pane-referee').innerHTML=`<div class="dcard"><div class="dtitle">심판</div><div class="dsub">주심을 누르면 올 시즌과 지난 시즌의 주심 배정을 먼저 빠르게 확인하고, 해당 주심 경기의 카드 평균을 계산합니다.</div>${refHtml}</div><div class="dcard"><div class="dtitle">현재 경기 주요 이벤트 / 카드</div>${d.timeline.length?`<div class="timeline">${d.timeline.map(x=>`<div class="event-row"><span class="min">${esc(x.time||'')}</span><span>${esc(eventTextKo(x.text))}</span></div>`).join('')}</div>`:'<div class="empty">경기 전이거나 이벤트 데이터 미제공</div>'}</div>`;
  $('#pane-odds').innerHTML=`<div class="dcard"><div class="dtitle">배당</div>${oddsHtml(d.odds,d.teams)}<div class="source-note">객체형/깨진 배당값은 숨기고 실제 숫자로 읽히는 값만 표시합니다.</div></div>`;
