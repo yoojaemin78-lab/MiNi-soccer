@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V40</title>
+<title>SOCCER MATCH V41</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -384,7 +384,7 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V40</span></h1><div class="sub">Flashscore 직접 데이터 · 경기/순위/통계/H2H/라인업/결장·부상/배당/선수정보 · 심판만 별도</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V41</span></h1><div class="sub">Flashscore 직접 데이터 · 경기/순위/통계/H2H/라인업/결장·부상/배당/선수정보 · 심판만 별도</div></div>
   <div class="source-pill">Flashscore · 심판만 별도</div>
 </header>
 <section class="card">
@@ -1787,11 +1787,18 @@ function renderDetail(d){
  $('#pane-weather').innerHTML=`<div class="dcard"><div class="dtitle">경기장 날씨</div>${weatherHtml(d.weather)}<div class="source-note">ESPN 날씨 우선. 과거 경기는 Open-Meteo 과거날씨, 미래 경기는 예보를 사용합니다.</div></div>`;
 }
 /* ========================================================================== */
-/* V40 · Flashscore 단일 데이터 경로 (심판만 기존 별도 소스 유지)             */
+/* V41 · Flashscore 단일 데이터 경로 + GitHub Pages 프록시 전송             */
 /* ========================================================================== */
 const FS39_SIGN='SW9D1eZo';
-const FS39_FEED_HOSTS=['https://2.flashscore.ninja/2/x/feed','https://local-global.flashscore.ninja/2/x/feed'];
+const FS39_FEED_HOSTS=[
+ 'https://2.flashscore.ninja/2/x/feed',
+ 'https://local-global.flashscore.ninja/2/x/feed',
+ 'https://www.flashscore.com/x/feed',
+ 'https://d.flashscore.com/x/feed'
+];
 const FS39_GQL='https://2.ds.lsapp.eu/pq_graphql';
+const FS41_CORS_PROXY='https://corsproxy.io/?url=';
+const FS41_ALLORIGINS='https://api.allorigins.win/raw?url=';
 state.fs39TextCache=state.fs39TextCache||new Map();
 state.fs39JsonCache=state.fs39JsonCache||new Map();
 state.fs39DayCache=state.fs39DayCache||new Map();
@@ -1800,16 +1807,40 @@ state.fs39Standings=state.fs39Standings||new Map();
 state.fs39Detail=state.fs39Detail||new Map();
 
 function fs39Timeout(ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return{c,t}}
+function fs41LooksBlockedText(v){const t=String(v||'').slice(0,1200).toLowerCase();return !t||t.includes('access denied')||t.includes('forbidden')||t.includes('cloudflare ray id')||t.includes('<!doctype html')&&t.includes('captcha')}
+async function fs41FetchAttempt(target,{json=false,timeout=5500,sign=false,fresh=false}={}){
+ const{c,t}=fs39Timeout(timeout);try{
+  const headers={Accept:json?'application/json, text/plain, */*':'text/plain, */*','Accept-Language':'en-US,en;q=0.9'};
+  if(sign)headers['x-fsign']=FS39_SIGN;
+  const r=await fetch(target,{headers,signal:c.signal,cache:fresh?'no-store':'default'});
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  if(json){const tx=await r.text();if(fs41LooksBlockedText(tx))throw new Error('blocked');try{return JSON.parse(tx)}catch(e){throw new Error('invalid json')}}
+  const tx=await r.text();if(fs41LooksBlockedText(tx))throw new Error('blocked');return tx
+ }finally{clearTimeout(t)}
+}
 async function fs39FetchOne(url,{json=false,timeout=5500,sign=false,fresh=false}={}){
- const cache=json?state.fs39JsonCache:state.fs39TextCache;if(!fresh&&cache.has(url)){const v=cache.get(url);return v&&typeof v.then==='function'?await v:v}
- const task=(async()=>{const{c,t}=fs39Timeout(timeout);try{const headers={Accept:json?'application/json':'text/plain,*/*'};if(sign)headers['x-fsign']=FS39_SIGN;const r=await fetch(url,{headers,signal:c.signal,cache:fresh?'no-store':'default'});if(!r.ok)throw new Error(`HTTP ${r.status}`);const v=json?await r.json():await r.text();if(!fresh)cache.set(url,v);return v}finally{clearTimeout(t)}})();
- if(!fresh)cache.set(url,task);try{const v=await task;if(!fresh)cache.set(url,v);return v}catch(e){if(!fresh)cache.delete(url);throw e}
+ const cache=json?state.fs39JsonCache:state.fs39TextCache;
+ if(!fresh&&cache.has(url)){const v=cache.get(url);return v&&typeof v.then==='function'?await v:v}
+ const task=(async()=>{
+  const onGithub=/\.github\.io$/i.test(location.hostname||'');
+  const proxy=`${FS41_CORS_PROXY}${encodeURIComponent(url)}`;
+  const allorigins=`${FS41_ALLORIGINS}${encodeURIComponent(url)}`;
+  const attempts=onGithub?[proxy,url,allorigins]:[url,proxy,allorigins];
+  let last=null;
+  for(const target of attempts){
+   try{return await fs41FetchAttempt(target,{json,timeout:target===url?Math.min(timeout,2200):timeout,sign:target===allorigins?false:sign,fresh})}
+   catch(e){last=e}
+  }
+  throw last||new Error('network failed')
+ })();
+ if(!fresh)cache.set(url,task);
+ try{const v=await task;if(!fresh)cache.set(url,v);return v}catch(e){if(!fresh)cache.delete(url);throw e}
 }
-async function fs39Feed(path,{timeout=5500,fresh=false}={}){
+async function fs39Feed(path,{timeout=6500,fresh=false}={}){
  const urls=FS39_FEED_HOSTS.map(h=>`${h}/${path}`),jobs=urls.map(u=>fs39FetchOne(u,{timeout,sign:true,fresh}));
- try{return await Promise.any(jobs)}catch(e){throw new Error('Flashscore 피드 연결 실패')}
+ try{return await Promise.any(jobs)}catch(e){throw new Error('Flashscore 피드/프록시 연결 실패')}
 }
-async function fs39Graph(params,{timeout=5500,fresh=false}={}){
+async function fs39Graph(params,{timeout=6500,fresh=false}={}){
  const u=`${FS39_GQL}?${new URLSearchParams(params).toString()}`;return await fs39FetchOne(u,{json:true,timeout,fresh})
 }
 function fs39Fields(row){const o={};for(const cell of String(row||'').split('¬')){if(!cell)continue;let i=cell.indexOf('÷');if(i<0)i=cell.indexOf('·');if(i<0)continue;const k=cell.slice(0,i).trim(),v=cell.slice(i+1);if(!k)continue;if(o[k]===undefined)o[k]=v;else if(Array.isArray(o[k]))o[k].push(v);else o[k]=[o[k],v]}return o}
@@ -1823,7 +1854,7 @@ async function fs39LoadDay(date,{fresh=false}={}){const key=String(date);if(!fre
 
 function leagueLabel(ev){return ev?.fsMeta?.leagueName||ev?.league?.name||'기타 경기'}
 function inferLeague(ev,selected='all'){if(selected&&selected!=='all')return selected;if(ev?.fsMeta?.leagueCode)return ev.fsMeta.leagueCode;return ev?.league?.slug||'all'}
-async function loadMatches(){const date=$('#matchDate').value,league=$('#league').value;if(!date)return;localStorage.setItem('soccerLeague',league);setStatus('Flashscore 경기 연결 중…','loading');$('#results').innerHTML='<div class="empty">Flashscore 경기 불러오는 중…</div>';try{const data=await fs39LoadDay(date,{fresh:true}),all=data.events||[],list=league==='all'?all:all.filter(x=>x.fsMeta?.leagueCode===league);state.lastScoreboard=null;state.matches=list;state.eventLeague.clear();for(const ev of list)state.eventLeague.set(String(ev.id),ev.fsMeta?.leagueCode||league||'all');setStatus(`Flashscore 정상 · ${list.length}경기`,'ok');renderMatches()}catch(e){state.matches=[];setStatus('Flashscore 경기 연결 실패','bad');$('#results').innerHTML=`<div class="badbox">${esc(e.message)}<br>다른 소스로 대체하지 않습니다.</div>`}}
+async function loadMatches(){const date=$('#matchDate').value,league=$('#league').value;if(!date)return;localStorage.setItem('soccerLeague',league);setStatus('Flashscore 경기 연결 중…','loading');$('#results').innerHTML='<div class="empty">Flashscore 경기 불러오는 중…</div>';try{const data=await fs39LoadDay(date,{fresh:true}),all=data.events||[],list=league==='all'?all:all.filter(x=>x.fsMeta?.leagueCode===league);state.lastScoreboard=null;state.matches=list;state.eventLeague.clear();for(const ev of list)state.eventLeague.set(String(ev.id),ev.fsMeta?.leagueCode||league||'all');setStatus(`Flashscore 정상 · ${list.length}경기`,'ok');renderMatches()}catch(e){state.matches=[];setStatus('Flashscore 연결 실패 · 프록시 포함','bad');$('#results').innerHTML=`<div class="badbox">${esc(e.message)}<br>Flashscore 원자료만 사용하며, GitHub Pages에서는 CORS 프록시 경로까지 자동 시도합니다.</div>`}}
 
 function fs39LogoMap(rows){const map={};for(const row of rows){const cells=String(row||'').split('¬');for(let i=0;i<cells.length-1;i++){if(cells[i].startsWith('IPI÷')&&cells[i+1].startsWith('IPU÷'))map[cells[i].slice(4).trim()]=cells[i+1].slice(4).trim()}}return map}
 async function fs39FindLeagueMeta(league){if(state.fs39LeagueMeta.has(league))return state.fs39LeagueMeta.get(league);const base=$('#matchDate').value||todayKST(),steps=[0,-1,1,-2,2,-3,3,-7,7,-14,14];for(let i=0;i<steps.length;i+=3){await Promise.all(steps.slice(i,i+3).map(n=>fs39LoadDay(addDays(base,n)).catch(()=>null)));if(state.fs39LeagueMeta.has(league))return state.fs39LeagueMeta.get(league)}return null}
