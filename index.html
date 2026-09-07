@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V37</title>
+<title>SOCCER MATCH V38</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -357,18 +357,18 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 
 /* V35 · Flashscore 선수 경력 원문형 표시 */
 .fs-career-list{margin-top:8px;border-top:1px solid #2a394b}
-.fs-career-head,.fs-career-row{display:grid;grid-template-columns:64px minmax(0,1fr) 46px 38px 38px;gap:6px;align-items:center}
+.fs-career-head,.fs-career-row{display:grid;grid-template-columns:74px minmax(0,1fr) 46px 38px 38px;column-gap:11px;row-gap:6px;align-items:center}
 .fs-career-head{padding:9px 4px;color:#8d9aac;font-size:12px;font-weight:850;background:#101722;border-bottom:1px solid #314052}
 .fs-career-row{padding:11px 4px;border-bottom:1px solid #293646}
 .fs-career-season{font-weight:900;color:#f3f5f8;font-size:14px}
 .fs-career-team{font-size:15px;font-weight:900;color:#f0f3f7;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fs-career-comp{font-size:11.5px;color:#8d9aac;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs-career-comp{font-size:11.5px;color:#8d9aac;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fs-career-rating{display:inline-block;margin-left:5px;padding:2px 5px;border-radius:6px;background:#1e6b38;color:#fff;font-size:10.5px;font-weight:900;vertical-align:1px}
 .fs-career-num{text-align:center;font-size:16px;font-weight:850;font-variant-numeric:tabular-nums}
 .fs-career-num.apps{color:#78aaff}.fs-career-num.goals{color:#c1acff}.fs-career-num.assists{color:#70c7ec}
-@media(max-width:430px){.fs-career-head,.fs-career-row{grid-template-columns:56px minmax(0,1fr) 42px 34px 34px;gap:4px}.fs-career-team{font-size:14px}.fs-career-comp{font-size:10.5px}.fs-career-season{font-size:13px}.fs-career-num{font-size:15px}}
+@media(max-width:430px){.fs-career-head,.fs-career-row{grid-template-columns:64px minmax(0,1fr) 42px 34px 34px;column-gap:9px;row-gap:5px}.fs-career-team{font-size:14px}.fs-career-comp{font-size:10.5px;margin-top:6px}.fs-career-season{font-size:13px}.fs-career-num{font-size:15px}}
 
-/* V37 · 선수정보 경량화 / Flashscore 단일 경로 */
+/* V38 · 선수정보 즉시 표시 / Flashscore 빠른 연결 */
 .player-current-club{margin-top:5px;display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#101a27;border:1px solid #2d3d50;color:#aab7c7;font-size:12px;font-weight:800}
 .player-current-club b{color:#eef3f8;font-weight:950}
 .fs-fast-note{font-size:13px;line-height:1.55;color:#9aa8b8;margin:8px 0 10px}
@@ -380,7 +380,7 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V37</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V38</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN + 보조 공개소스</div>
 </header>
 <section class="card">
@@ -427,7 +427,7 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 <div id="playerModal" class="player-modal hidden" aria-hidden="true">
   <div class="player-card-sheet">
     <div class="player-card-top">
-      <div class="player-card-title">선수 정보<small>Flashscore 경력 우선 · 팀 · 대회 · 경기 · 득점 · 도움</small></div>
+      <div class="player-card-title">선수 정보<small>Flashscore 경력 우선 · 팀 · 경기 · 득점 · 도움</small></div>
       <button id="closePlayer" class="player-close">닫기</button>
     </div>
     <div id="playerCardBody"><div class="loading-lines">선수 정보를 불러오는 중…</div></div>
@@ -1258,43 +1258,74 @@ function flashscoreCareerRowsFromText(txt,league,teamName=''){
 }
 function flashscoreSeasonDisplay(v){const m=String(v||'').match(/^(20)?(\d{2})\/(?:20)?(\d{2})$/);return m?`${m[2]}/${m[3]}`:String(v||'')}
 function flashscoreCareerHtml(rows){
- if(!rows?.length)return'';const val=v=>v===null||v===undefined||v===''?'-':v;return`<div class="player-data-note"><b>Flashscore 경력 → 리그 원문 기준</b>입니다. 시즌별 소속팀·대회·경기·득점·도움을 합치지 않고 그대로 표시합니다.</div><div class="fs-career-list"><div class="fs-career-head"><span>시즌</span><span>팀 / 대회</span><span>경기</span><span>G</span><span>A</span></div>${rows.map(r=>`<div class="fs-career-row"><div class="fs-career-season">${esc(flashscoreSeasonDisplay(r.season))}</div><div><div class="fs-career-team">${esc(r.team||'팀 미표기')}${r.rating!==null?`<span class="fs-career-rating">${esc(Number(r.rating).toFixed(1))}</span>`:''}</div><div class="fs-career-comp">${esc(r.competition||'대회 미표기')}</div></div><div class="fs-career-num apps">${esc(val(r.apps))}</div><div class="fs-career-num goals">${esc(val(r.goals))}</div><div class="fs-career-num assists">${esc(val(r.assists))}</div></div>`).join('')}</div>`
+ if(!rows?.length)return'';const val=v=>v===null||v===undefined||v===''?'-':v;return`<div class="player-data-note"><b>Flashscore 경력 → 리그 원문 기준</b>입니다. 시즌별 소속팀·리그·경기·득점·도움을 합치지 않고 그대로 표시합니다.</div><div class="fs-career-list"><div class="fs-career-head"><span>시즌</span><span>팀</span><span>경기</span><span>G</span><span>A</span></div>${rows.map(r=>`<div class="fs-career-row"><div class="fs-career-season">${esc(flashscoreSeasonDisplay(r.season))}</div><div><div class="fs-career-team">${esc(r.team||'팀 미표기')}${r.rating!==null?`<span class="fs-career-rating">${esc(Number(r.rating).toFixed(1))}</span>`:''}</div><div class="fs-career-comp">${esc(r.competition||'대회 미표기')}</div></div><div class="fs-career-num apps">${esc(val(r.apps))}</div><div class="fs-career-num goals">${esc(val(r.goals))}</div><div class="fs-career-num assists">${esc(val(r.assists))}</div></div>`).join('')}</div>`
 }
 function currentSeasonFallbackCareerHtml(row,d,team){
  if(!row||[row.apps,row.starts,row.goals,row.assists].every(v=>v===null||v===undefined))return'<div class="compact-empty">현재 시즌 선수 기록을 확인하지 못했습니다.</div>';
  const val=v=>v===null||v===undefined?'-':v,season=seasonLabelForPlayer(d.league,row.year),competition=LEAGUE_NAME.get(d.league)||d.league||'현재 리그';
- return`<div class="player-data-note"><b>Flashscore 연결 대기 중</b> · 아래는 현재 경기의 소속팀 기준 ESPN 현재 시즌 기록입니다. 과거 시즌은 소속팀을 검증할 수 있을 때만 표시합니다.</div><div class="fs-career-list"><div class="fs-career-head"><span>시즌</span><span>팀 / 대회</span><span>경기</span><span>G</span><span>A</span></div><div class="fs-career-row"><div class="fs-career-season">${esc(season)}</div><div><div class="fs-career-team">${esc(team?.name||'소속팀 미표기')}<span class="fs-fallback-badge">ESPN</span></div><div class="fs-career-comp">${esc(competition)}${row.starts!==null&&row.starts!==undefined?` · 선발 ${esc(row.starts)}`:''}</div></div><div class="fs-career-num apps">${esc(val(row.apps))}</div><div class="fs-career-num goals">${esc(val(row.goals))}</div><div class="fs-career-num assists">${esc(val(row.assists))}</div></div></div>`
+ return`<div class="player-data-note"><b>현재 시즌</b> · 현재 경기의 소속팀 기준 ESPN 기록입니다.</div><div class="fs-career-list"><div class="fs-career-head"><span>시즌</span><span>팀</span><span>경기</span><span>G</span><span>A</span></div><div class="fs-career-row"><div class="fs-career-season">${esc(season)}</div><div><div class="fs-career-team">${esc(team?.name||'소속팀 미표기')}<span class="fs-fallback-badge">ESPN</span></div><div class="fs-career-comp">${esc(competition)}${row.starts!==null&&row.starts!==undefined?` · 선발 ${esc(row.starts)}`:''}</div></div><div class="fs-career-num apps">${esc(val(row.apps))}</div><div class="fs-career-num goals">${esc(val(row.goals))}</div><div class="fs-career-num assists">${esc(val(row.assists))}</div></div></div>`
 }
-function flashscoreProfileStoreKey(name,team){return`fsProfileV37:${roleKey(name)}:${roleKey(team)}`}
+function flashscoreProfileStoreKey(name,team){return`fsProfileV38:${roleKey(name)}:${roleKey(team)}`}
 function readFlashscoreProfileStored(name,team){
  try{const raw=localStorage.getItem(flashscoreProfileStoreKey(name,team));if(!raw)return null;const x=JSON.parse(raw);if(Date.now()-(x.savedAt||0)>21600000){localStorage.removeItem(flashscoreProfileStoreKey(name,team));return null}return x?.profile||null}catch(e){return null}
 }
 function saveFlashscoreProfileStored(name,team,profile){
  try{if(profile?.career?.length||marketValueUsable(profile?.market))localStorage.setItem(flashscoreProfileStoreKey(name,team),JSON.stringify({savedAt:Date.now(),profile:{url:profile.url||'',market:profile.market||null,meta:profile.meta||{},career:profile.career||[],fromSearch:false}}))}catch(e){}
 }
-async function flashscoreReaderText(url,timeout=5200){
+async function flashscoreReaderText(url,timeout=3000){
  const target=flashscoreCanonicalPlayerUrl(url);if(!target)return null;const reader=`https://r.jina.ai/${target}`;
  try{const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout),r=await fetch(reader,{signal:c.signal,cache:'force-cache'});clearTimeout(tm);if(!r.ok)return null;const t=await r.text();return externalTextLooksUseful(t)?t:null}catch(e){return null}
 }
 async function flashscoreSingleText(url,timeout=3800){
  try{const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout),r=await fetch(url,{signal:c.signal,cache:'force-cache'});clearTimeout(tm);if(!r.ok)return null;const t=await r.text();return externalTextLooksUseful(t)?t:null}catch(e){return null}
 }
+function playerCachedSquadRow(teamId,name,year){
+ try{
+  const key=`espnSquadPageV26:${teamId}:${year}`,v=state.playerStatsCache.get(key);
+  if(!v||v instanceof Promise||typeof v?.get!=='function')return null;
+  let hit=v.get(roleKey(name));if(!hit)for(const x of v.values())if(espnNameSame(x?.name,name)){hit=x;break}
+  return hit?.row?sanitizePlayerSeasonRow(hit.row):null
+ }catch(e){return null}
+}
+function playerRoleFallbackRow(d,side,p){
+ const x=d?.lineupRoles?.[side]?.[roleKey(p?.name)]||{};
+ if((x?.seasonApps===null||x?.seasonApps===undefined)&&(x?.seasonStarts===null||x?.seasonStarts===undefined))return null;
+ return sanitizePlayerSeasonRow({year:Number(d?.seasonYear),apps:x?.seasonApps??null,starts:x?.seasonStarts??null,goals:null,assists:null})
+}
+function playerCachedMarket(name,team){
+ const key=marketCacheKey(name,team);try{const m=state.marketValueCache.get(key);if(m&&marketValueUsable(m.value))return m;const raw=localStorage.getItem(key);if(raw){const x=JSON.parse(raw);if(x&&marketValueUsable(x.value))return x}}catch(e){}return null
+}
+async function wikidataFlashscorePlayerUrl(name,team){
+ if(!name)return null;const q=encodeURIComponent(name),base='https://www.wikidata.org/w/api.php';
+ try{
+  const c1=new AbortController(),t1=setTimeout(()=>c1.abort(),1600),r1=await fetch(`${base}?action=wbsearchentities&search=${q}&language=en&uselang=en&type=item&limit=6&format=json&origin=*`,{signal:c1.signal,cache:'force-cache'});clearTimeout(t1);if(!r1.ok)return null;
+  const j1=await r1.json(),nk=roleKey(name),hits=(j1?.search||[]).filter(x=>{const k=roleKey(x?.label||'');return k===nk||k.includes(nk)||nk.includes(k)}).slice(0,5);if(!hits.length)return null;
+  const ids=hits.map(x=>x.id).filter(Boolean).join('|');if(!ids)return null;
+  const c2=new AbortController(),t2=setTimeout(()=>c2.abort(),1600),r2=await fetch(`${base}?action=wbgetentities&ids=${encodeURIComponent(ids)}&props=claims|labels|descriptions&languages=en&format=json&origin=*`,{signal:c2.signal,cache:'force-cache'});clearTimeout(t2);if(!r2.ok)return null;
+  const j2=await r2.json(),tk=roleKey(team);let best=null,bestScore=-1;
+  for(const id of ids.split('|')){const e=j2?.entities?.[id];if(!e)continue;const v=e?.claims?.P8259?.[0]?.mainsnak?.datavalue?.value;if(!v)continue;const label=e?.labels?.en?.value||'',desc=e?.descriptions?.en?.value||'',lk=roleKey(label),dk=roleKey(desc);let score=lk===nk?8:(lk.includes(nk)||nk.includes(lk)?4:0);if(tk&&dk.includes(tk))score+=3;if(score>bestScore){bestScore=score;best=v}}
+  return best?flashscoreCanonicalPlayerUrl(`https://www.flashscore.com/player/${String(best).replace(/^\/+|\/+$/g,'')}/`):null
+ }catch(e){return null}
+}
+async function firstTruthy(tasks,timeout=2200){
+ return await new Promise(resolve=>{let done=false,left=tasks.length;const tm=setTimeout(()=>{if(!done){done=true;resolve(null)}},timeout);for(const t of tasks)Promise.resolve(t).then(v=>{if(done)return;if(v){done=true;clearTimeout(tm);resolve(v);return}if(--left<=0){done=true;clearTimeout(tm);resolve(null)}}).catch(()=>{if(done)return;if(--left<=0){done=true;clearTimeout(tm);resolve(null)}})})
+}
 async function flashscoreFindPlayerUrlFast(name,team){
- const urlKey=`flashscorePlayerUrlV5:${roleKey(name)}:${roleKey(team)}`;
- try{const now=localStorage.getItem(urlKey)||localStorage.getItem(`flashscorePlayerUrlV4:${roleKey(name)}:${roleKey(team)}`);if(now){const u=flashscoreCanonicalPlayerUrl(now);if(u)return u}}catch(e){}
+ const urlKey=`flashscorePlayerUrlV6:${roleKey(name)}:${roleKey(team)}`;
+ try{for(const k of [urlKey,`flashscorePlayerUrlV5:${roleKey(name)}:${roleKey(team)}`,`flashscorePlayerUrlV4:${roleKey(name)}:${roleKey(team)}`]){const now=localStorage.getItem(k);if(now){const u=flashscoreCanonicalPlayerUrl(now);if(u)return u}}}catch(e){}
  const q=`site:flashscore.com/player/ "${name}" "${team||''}" Flashscore`;
- // 검색 프록시 4개를 동시에 쏘지 않는다. Jina 검색 1회 → 실패 시 Bing Reader 1회만 사용.
- let t=await flashscoreSingleText(`https://s.jina.ai/${encodeURIComponent(q)}`,3600),u=t?flashscorePlayerUrlFromSearch(t,name,team):null;
- if(!u){const e=encodeURIComponent(q);t=await flashscoreSingleText(`https://r.jina.ai/https://www.bing.com/search?q=${e}`,3000);u=t?flashscorePlayerUrlFromSearch(t,name,team):null}
+ const searchTask=(async()=>{const t=await flashscoreSingleText(`https://s.jina.ai/${encodeURIComponent(q)}`,1800);return t?flashscorePlayerUrlFromSearch(t,name,team):null})();
+ let u=await firstTruthy([wikidataFlashscorePlayerUrl(name,team),searchTask],2200);
+ if(!u){const e=encodeURIComponent(q),t=await flashscoreSingleText(`https://r.jina.ai/https://www.bing.com/search?q=${e}`,1400);u=t?flashscorePlayerUrlFromSearch(t,name,team):null}
  if(u)try{localStorage.setItem(urlKey,u)}catch(e){}return u
 }
 async function flashscorePlayerProfile(name,team){
- if(!name)return null;const key=`flashscoreProfileV37:${roleKey(name)}:${roleKey(team)}`;
+ if(!name)return null;const key=`flashscoreProfileV38:${roleKey(name)}:${roleKey(team)}`;
  if(state.playerStatsCache.has(key)){const v=state.playerStatsCache.get(key);return v&&typeof v.then==='function'?await v:v}
  const stored=readFlashscoreProfileStored(name,team);if(stored){state.playerStatsCache.set(key,stored);return stored}
  const task=(async()=>{
   const url=await flashscoreFindPlayerUrlFast(name,team);if(!url)return null;
-  const txt=await flashscoreReaderText(url,5400);if(!txt||!flashscoreProfileTextMatches(txt,name,team))return null;
+  const txt=await flashscoreReaderText(url,3000);if(!txt||!flashscoreProfileTextMatches(txt,name,team))return null;
   const career=flashscoreLeagueCareerDetailedRowsFromText(txt),meta=flashscoreProfileMetaFromText(txt),market=meta.market||flashscoreMarketFromText(txt);
   if(!career.length&&!marketValueUsable(market))return null;
   const out={url:flashscoreCanonicalPlayerUrl(url),text:txt,market,meta,career,fromSearch:false};saveFlashscoreProfileStored(name,team,out);return out
@@ -1588,29 +1619,21 @@ async function openPlayerModal(p,side,d){
  try{
   if($('#playerModal').classList.contains('hidden')){try{history.pushState({soccerPlayer:true,playerId:String(p?.id||'')},'',location.href);playerHistoryActive=true}catch(e){}}
   $('#playerModal').classList.remove('hidden');$('#playerModal').setAttribute('aria-hidden','false');
-  const team=d?.teams?.[side]||{},role=d?.lineupRoles?.[side]?.[roleKey(p?.name)]?.role||'unknown',roleTxt=roleLabel(role),year=Number(d?.seasonYear||new Date().getFullYear());
-  $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${esc(p?.jersey||'?')}</div><div><div class="player-name">${esc(p?.name||'선수')}</div><div class="player-meta">${esc(team?.name||'소속팀 미표기')} · ${esc(p?.pos||'포지션 미표기')} · ${esc(roleTxt)}</div><div class="player-current-club">현재 소속 <b>${esc(team?.name||'미표기')}</b></div></div><div class="market-value"><div><div class="k">시장가치</div><div class="src" id="playerMarketSource">Flashscore</div></div><div class="v" id="playerMarket">확인 중</div></div></div><div class="dtitle" id="playerStatsTitle">경력 · 리그</div><div id="playerStatsFast"><div class="compact-empty">현재 시즌 기록을 먼저 확인하는 중…</div></div><div class="player-source" id="playerSourceStatus">Flashscore는 단일 경로로 연결하고, 기다리는 동안 ESPN 현재 시즌 기록만 먼저 표시합니다.</div>`;
+  const team=d?.teams?.[side]||{},role=d?.lineupRoles?.[side]?.[roleKey(p?.name)]?.role||'unknown',roleTxt=roleLabel(role),year=Number(d?.seasonYear||new Date().getFullYear()),jersey=esc(p?.jersey||'?');
+  const avatar=p?.id?`<img id="playerAvatarImg" src="https://a.espncdn.com/i/headshots/soccer/players/full/${encodeURIComponent(p.id)}.png" alt="">`:jersey;
+  const cachedRow=playerCachedSquadRow(team?.id,p?.name,year)||playerRoleFallbackRow(d,side,p),cachedMv=playerCachedMarket(p?.name||'',team?.name||'');
+  $('#playerCardBody').innerHTML=`<div class="player-hero"><div class="player-avatar">${avatar}</div><div><div class="player-name">${esc(p?.name||'선수')}</div><div class="player-meta">${esc(team?.name||'소속팀 미표기')} · ${esc(p?.pos||'포지션 미표기')} · ${esc(roleTxt)}</div><div class="player-current-club">현재 소속 <b>${esc(team?.name||'미표기')}</b></div></div><div class="market-value"><div><div class="k">시장가치</div><div class="src" id="playerMarketSource">${cachedMv?.source?esc(cachedMv.source):'Flashscore'}</div></div><div class="v" id="playerMarket">${cachedMv?esc(formatEuroMarket(cachedMv.value)):'확인 중'}</div></div></div><div class="dtitle" id="playerStatsTitle">현재 시즌</div><div id="playerStatsFast">${cachedRow?currentSeasonFallbackCareerHtml(cachedRow,d,team):'<div class="compact-empty">선수 기록 확인 중…</div>'}</div><div class="player-source" id="playerSourceStatus">${cachedRow?'현재 시즌 기록을 즉시 표시했습니다. Flashscore 경력은 뒤에서 확인합니다.':'현재 시즌 기록을 먼저 불러오고 있습니다.'}</div>`;
+  const img=document.getElementById('playerAvatarImg');if(img)img.onerror=()=>{if(seq!==playerLoadSeq)return;const av=img.parentElement;if(av)av.textContent=p?.jersey||'?'};
   const setStatus=t=>{if(seq!==playerLoadSeq)return;const st=document.getElementById('playerSourceStatus');if(st)st.textContent=t};
   const setMarket=(v,src='Flashscore')=>{if(seq!==playerLoadSeq||!marketValueUsable(v))return;const el=document.getElementById('playerMarket'),se=document.getElementById('playerMarketSource');if(el)el.textContent=formatEuroMarket(v);if(se)se.textContent=src};
   const setMeta=(club,pos,age='')=>{if(seq!==playerLoadSeq)return;const meta=document.querySelector('#playerCardBody .player-meta'),chip=document.querySelector('#playerCardBody .player-current-club b');if(meta)meta.textContent=`${club||team.name||'소속팀 미표기'} · ${pos||p?.pos||'포지션 미표기'} · ${roleTxt}${age?` · ${age}세`:''}`;if(chip)chip.textContent=club||team.name||'미표기'};
-  // 사진은 ESPN 프로필에서 짧게만 가져온다. 선수 통계 로딩과 서로 기다리지 않는다.
-  if(p?.id)playerWithin(coreAthleteProfile(d.league,p.id),2600,null).then(ath=>{if(!ath||seq!==playerLoadSeq)return;const q=ath?.athlete||ath||{},img=q?.headshot?.href||q?.headshot||'';if(img){const av=document.querySelector('#playerCardBody .player-avatar');if(av)av.innerHTML=`<img src="${esc(img)}" alt="">`}}).catch(()=>{});
-  let flashDone=false,espnRendered=false;
-  // ESPN은 현재 시즌 한 줄만 빠르게. 이 값은 과거 시즌 경력과 절대 합치지 않는다.
-  const espnTask=(async()=>{if(!team?.id)return null;const rows=await playerWithin(fetchEspnSquadPlayerRows(team.id,p?.name||'',[year]),4200,[]);return rows?.[0]||null})();
-  espnTask.then(row=>{if(seq!==playerLoadSeq||flashDone||!row)return;espnRendered=true;const el=document.getElementById('playerStatsFast'),title=document.getElementById('playerStatsTitle');if(title)title.textContent='현재 시즌 · ESPN';if(el)el.innerHTML=currentSeasonFallbackCareerHtml(row,d,team);setStatus('Flashscore 경력을 계속 확인 중입니다. 연결되면 팀·대회가 포함된 경력표로 자동 교체합니다.')}).catch(()=>{});
-  // 선수정보의 핵심 요청은 Flashscore 하나만 사용한다. V36의 7개 병렬 호출을 제거했다.
-  const fs=await playerWithin(flashscorePlayerProfile(p?.name||'',team?.name||''),6200,null);
-  if(seq!==playerLoadSeq)return;
-  flashDone=true;
-  if(fs?.career?.length){
-   const el=document.getElementById('playerStatsFast'),title=document.getElementById('playerStatsTitle');if(title)title.textContent='경력 · 리그';if(el)el.innerHTML=flashscoreCareerHtml(fs.career);const meta=fs.meta||{};setMeta(meta.team||team.name,meta.position||p?.pos,meta.age||'');if(marketValueUsable(fs.market))setMarket(fs.market,'Flashscore');setStatus('Flashscore 경력 원문 기준 · 시즌별 소속팀·대회·경기·득점·도움을 그대로 표시합니다.');
-  }else{
-   const row=await espnTask;if(seq!==playerLoadSeq)return;if(row&&!espnRendered){const el=document.getElementById('playerStatsFast'),title=document.getElementById('playerStatsTitle');if(title)title.textContent='현재 시즌 · ESPN';if(el)el.innerHTML=currentSeasonFallbackCareerHtml(row,d,team)}
-   const me=document.getElementById('playerMarket');if(me&&me.textContent==='확인 중')me.textContent='미제공';setStatus('Flashscore 연결이 제한시간 안에 완료되지 않아 현재 시즌 ESPN 기록만 표시합니다. 과거 시즌 기록은 임의로 섞지 않습니다.');
-   // 시장가치만 마지막에 짧게 보조 확인. 화면 렌더링은 기다리지 않는다.
-   playerWithin(transfermarktMarketValue(p?.name||'',team?.name||''),3200,null).then(mv=>{if(seq===playerLoadSeq&&marketValueUsable(mv?.value))setMarket(mv.value,'Transfermarkt 보조')}).catch(()=>{});
-  }
+  const espnTask=cachedRow?Promise.resolve(cachedRow):(async()=>{if(!team?.id)return null;const rows=await playerWithin(fetchEspnSquadPlayerRows(team.id,p?.name||'',[year]),2200,[]);return rows?.[0]||null})();
+  if(!cachedRow)espnTask.then(row=>{if(seq!==playerLoadSeq||!row)return;const el=document.getElementById('playerStatsFast'),title=document.getElementById('playerStatsTitle');if(title)title.textContent='현재 시즌';if(el)el.innerHTML=currentSeasonFallbackCareerHtml(row,d,team);setStatus('현재 시즌 기록 표시 완료 · Flashscore 경력은 뒤에서 확인합니다.')}).catch(()=>{});
+  if(p?.id)playerWithin(coreAthleteProfile(d.league,p.id),1500,null).then(ath=>{if(!ath||seq!==playerLoadSeq)return;const q=ath?.athlete||ath||{},src=q?.headshot?.href||q?.headshot||'';if(src){const av=document.querySelector('#playerCardBody .player-avatar');if(av)av.innerHTML=`<img src="${esc(src)}" alt="">`}}).catch(()=>{});
+  const fsTask=playerWithin(flashscorePlayerProfile(p?.name||'',team?.name||''),3300,null);
+  fsTask.then(fs=>{if(seq!==playerLoadSeq||!fs)return;if(fs?.career?.length){const el=document.getElementById('playerStatsFast'),title=document.getElementById('playerStatsTitle');if(title)title.textContent='경력 · 리그';if(el)el.innerHTML=flashscoreCareerHtml(fs.career);const meta=fs.meta||{};setMeta(meta.team||team.name,meta.position||p?.pos,meta.age||'');setStatus('Flashscore 경력 기준 · 시즌별 소속팀과 리그 기록입니다.')}if(marketValueUsable(fs?.market))setMarket(fs.market,'Flashscore')}).catch(()=>{});
+  if(!cachedMv)playerWithin(transfermarktMarketValue(p?.name||'',team?.name||''),2000,null).then(mv=>{if(seq===playerLoadSeq&&marketValueUsable(mv?.value)){const cur=document.getElementById('playerMarket');if(cur&&cur.textContent==='확인 중')setMarket(mv.value,'Transfermarkt 보조')}}).catch(()=>{});
+  setTimeout(()=>{if(seq!==playerLoadSeq)return;const el=document.getElementById('playerMarket');if(el&&el.textContent==='확인 중')el.textContent='미제공'},2300);
  }catch(e){if(seq!==playerLoadSeq)return;$('#playerCardBody').innerHTML=`<div class="badbox">선수정보 화면 오류: ${esc(e?.message||'알 수 없는 오류')}</div>`}
 }
 function statsHtml(rows,teams){if(!rows?.length)return'<div class="empty">경기 통계 데이터 미제공</div>';return`<table class="stat-table"><tbody>${rows.map(r=>`<tr><td class="${r.percent?'pct':''}">${esc(r.home)}</td><td>${esc(r.label)}</td><td class="${r.percent?'pct':''}">${esc(r.away)}</td></tr>`).join('')}</tbody></table><div class="source-note">${esc(teams.home.name)} ← 통계 → ${esc(teams.away.name)}</div>`}
