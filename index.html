@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V33</title>
+<title>SOCCER MATCH V34</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -361,7 +361,7 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V33</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V34</span></h1><div class="sub">Flashscore식 정보구조 · ESPN 중심 · 경기/라이브통계/H2H/피치라인업/결장·부상/심판카드/배당/날씨</div></div>
   <div class="source-pill">ESPN + 보조 공개소스</div>
 </header>
 <section class="card">
@@ -1037,7 +1037,7 @@ async function athleteGamelogCount(league,id,season){try{const d=await fetchJson
 function playerSeasonStoreKey(league,id){return`playerSeasonV10:${league}:${id}`}
 function readPlayerSeasonCache(league,id){try{const raw=localStorage.getItem(playerSeasonStoreKey(league,id));if(!raw)return null;const x=JSON.parse(raw);return Date.now()-(x.savedAt||0)<43200000?x:null}catch(e){return null}}
 function savePlayerSeasonCache(league,id,rows,profile){try{localStorage.setItem(playerSeasonStoreKey(league,id),JSON.stringify({savedAt:Date.now(),rows,profile:{name:profile?.displayName||'',age:profile?.age||'',foot:profile?.preferredFoot||'',img:profile?.headshot?.href||profile?.headshot||''}}))}catch(e){}}
-function marketCacheKey(name,team){return`mv:v7:${roleKey(name)}:${roleKey(team)}`}
+function marketCacheKey(name,team){return`mv:v8:${roleKey(name)}:${roleKey(team)}`}
 async function fetchExternalJson(url){
  const tries=[url,`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
  const attempt=async u=>{try{const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),4500),r=await fetch(u,{headers:{Accept:'application/json'},signal:ctrl.signal});clearTimeout(tm);if(!r.ok)return null;const t=await r.text();return JSON.parse(t)}catch(e){return null}};
@@ -1142,10 +1142,49 @@ function flashscoreMarketFromSearchText(txt,name,team){
  const low=raw.toLowerCase();for(const q of needles){const needle=q.toLowerCase();let pos=0,count=0;while((pos=low.indexOf(needle,pos))>=0&&count<6){windows.push(raw.slice(Math.max(0,pos-800),pos+1700));pos+=Math.max(1,needle.length);count++}}
  windows.push(raw.slice(0,9000));for(const w of windows){const v=flashscoreMarketFromText(w);if(v)return v}return null
 }
+function flashscoreProfileTextMatches(txt,name,team){
+ const raw=String(txt||'');if(!raw)return false;const nk=roleKey(name),tk=roleKey(team),head=roleKey(raw.slice(0,9000));
+ if(nk&&!head.includes(nk))return false;
+ // Rodri처럼 동명이인이 많은 경우 소속팀까지 확인된 프로필만 허용한다.
+ if(tk&&!head.includes(tk))return false;
+ return true
+}
+function flashscoreCanonicalPlayerUrl(url){
+ const m=String(url||'').match(/https?:\/\/(?:www\.)?(?:flashscore(?:usa)?\.[a-z.]+)\/(?:en\/)?(?:player|jugador|oyuncu)\/[^/]+\/[A-Za-z0-9]+/i);
+ if(!m)return null;let u=m[0].replace(/\/+(?:transfers|injury-history|news)?\/?$/i,'');return u.replace(/\/+$/,'')+'/'
+}
+function flashscoreSearchCandidateList(texts,name,team){
+ const all=[],seen=new Set(),nk=roleKey(name),tk=roleKey(team);
+ for(const raw0 of (texts||[])){const raw=String(raw0||'').replace(/\u002F/g,'/').replace(/&amp;/g,'&').replace(/\\\//g,'/');
+  const re=/https?:\/\/(?:www\.)?(?:flashscore(?:usa)?\.[a-z.]+)\/(?:en\/)?(?:player|jugador|oyuncu)\/[a-z0-9-]+\/[A-Za-z0-9]+(?:\/(?:transfers|injury-history|news))?\/?/gi;let m;
+  while((m=re.exec(raw))){const u=flashscoreCanonicalPlayerUrl(m[0]);if(!u||seen.has(u))continue;seen.add(u);const at=m.index,ctx=raw.slice(Math.max(0,at-900),at+1500),ck=roleKey(ctx),slug=roleKey((u.match(/\/(?:player|jugador|oyuncu)\/([^/]+)/i)||[])[1]||'');let score=0;
+   if(nk&&slug){if(slug===nk)score+=18;else if(slug.includes(nk)||nk.includes(slug))score+=10}
+   if(nk&&ck.includes(nk))score+=8;if(tk&&ck.includes(tk))score+=14;if(/flashscore\.com\//i.test(u))score+=2;
+   const market=flashscoreMarketFromText(ctx);all.push({url:u,score,market,ctx})
+  }
+ }
+ return all.sort((a,b)=>b.score-a.score)
+}
+async function flashscoreExactProfileFromUrl(url,name,team){
+ const base=flashscoreCanonicalPlayerUrl(url);if(!base)return null;
+ const candidates=[base,`${base}transfers/`];
+ let bestText='';
+ for(const u of candidates){
+  const hit=await fetchExternalParsed(u,t=>{if(!flashscoreProfileTextMatches(t,name,team))return null;const market=flashscoreMarketFromText(t);return market?{market}:null},8500).catch(()=>null);
+  if(hit?.value?.market)return{url:base,text:hit.text||'',market:hit.value.market,fromSearch:false};
+  const txt=await fetchExternalTextPage(u,7000).catch(()=>null);if(txt&&flashscoreProfileTextMatches(txt,name,team)&&!bestText)bestText=txt
+ }
+ return bestText?{url:base,text:bestText,market:null,fromSearch:false}:null
+}
 async function flashscoreSearchTexts(name,team){
- const queries=[`site:flashscore.com/player/ "${name}" "${team||''}"`,`"${name}" "${team||''}" "Market value" Flashscore`,`"${name}" "${team||''}" Flashscore player`],urls=[];
- for(const q of queries){const e=encodeURIComponent(q);urls.push(`https://www.bing.com/search?q=${e}&format=rss`,`https://www.bing.com/search?q=${e}`,`https://html.duckduckgo.com/html/?q=${e}`,`https://lite.duckduckgo.com/lite/?q=${e}`,`https://www.google.com/search?q=${e}`)}
- const out=[];for(let i=0;i<urls.length;i+=5){const batch=await Promise.all(urls.slice(i,i+5).map(u=>fetchExternalTextPage(u,5200).catch(()=>null)));for(const t of batch)if(t)out.push(t);if(out.some(t=>flashscorePlayerUrlFromSearch(t,name,team))||out.some(t=>flashscoreMarketFromSearchText(t,name,team)))break}return out
+ const queries=[
+  `site:flashscore.com/player/ "${name}" "${team||''}"`,
+  `site:flashscore.com/player/ "${name} (${team||''}) Stats"`,
+  `site:flashscore.com/player/ "${name}" "${team||''}" "Market value"`,
+  `"${name}" "${team||''}" Flashscore player`
+ ],urls=[];
+ for(const q of queries){const e=encodeURIComponent(q);urls.push(`https://www.bing.com/search?q=${e}&format=rss`,`https://www.bing.com/search?q=${e}`,`https://html.duckduckgo.com/html/?q=${e}`,`https://www.google.com/search?q=${e}`)}
+ const out=[];for(let i=0;i<urls.length;i+=4){const batch=await Promise.all(urls.slice(i,i+4).map(u=>fetchExternalTextPage(u,5600).catch(()=>null)));for(const t of batch)if(t)out.push(t);if(out.some(t=>flashscorePlayerUrlFromSearch(t,name,team)))break}return out
 }
 
 function flashscoreLeagueHints(league){
@@ -1190,15 +1229,17 @@ function flashscoreCareerRowsFromText(txt,league){
  return[...merged.values()].sort((a,b)=>b.year-a.year)
 }
 async function flashscorePlayerProfile(name,team){
- if(!name)return null;const key=`flashscoreProfileV33:${roleKey(name)}:${roleKey(team)}`;
+ if(!name)return null;const key=`flashscoreProfileV34:${roleKey(name)}:${roleKey(team)}`,urlKey=`flashscorePlayerUrlV2:${roleKey(name)}:${roleKey(team)}`;
  if(state.playerStatsCache.has(key)){const v=state.playerStatsCache.get(key);return v&&typeof v.then==='function'?await v:v}
  const task=(async()=>{
-  const texts=await flashscoreSearchTexts(name,team);let playerUrl=null,searchMarket=null;
-  for(const t of texts){if(!searchMarket)searchMarket=flashscoreMarketFromSearchText(t,name,team);if(!playerUrl)playerUrl=flashscorePlayerUrlFromSearch(t,name,team);if(playerUrl&&searchMarket)break}
-  if(!playerUrl)return searchMarket?{url:null,text:'',market:searchMarket,fromSearch:true}:null;
-  const txt=await fetchExternalTextPage(playerUrl,8200);if(!txt)return searchMarket?{url:playerUrl,text:'',market:searchMarket,fromSearch:true}:null;
-  const plain=roleKey(txt),nk=roleKey(name);if(nk&&!plain.includes(nk))return searchMarket?{url:playerUrl,text:'',market:searchMarket,fromSearch:true}:null;
-  return{url:playerUrl,text:txt,market:flashscoreMarketFromText(txt)||searchMarket,fromSearch:false}
+  // 이미 검증된 선수 URL이 있으면 검색을 건너뛰고 Flashscore 본문에서 정확값을 먼저 읽는다.
+  try{const cachedUrl=localStorage.getItem(urlKey);if(cachedUrl){const exact=await flashscoreExactProfileFromUrl(cachedUrl,name,team);if(exact){if(exact.url)localStorage.setItem(urlKey,exact.url);return exact}else localStorage.removeItem(urlKey)}}catch(e){}
+  const texts=await flashscoreSearchTexts(name,team),cands=flashscoreSearchCandidateList(texts,name,team);
+  // 동명이인 방지: 소속팀 문맥 점수가 높은 후보부터 실제 프로필을 열어 이름+팀을 재검증한다.
+  for(const c of cands.slice(0,6)){const exact=await flashscoreExactProfileFromUrl(c.url,name,team);if(exact){try{localStorage.setItem(urlKey,exact.url)}catch(e){};if(!exact.market&&marketValueUsable(c.market))exact.market=c.market;return exact}}
+  // 검색 스니펫 값은 이름+소속팀이 같은 후보 문맥에서만 마지막 보조로 허용한다.
+  const safe=cands.find(c=>c.score>=20&&marketValueUsable(c.market));if(safe)return{url:safe.url,text:'',market:safe.market,fromSearch:true};
+  return null
  })();
  state.playerStatsCache.set(key,task);const out=await task;if(out)state.playerStatsCache.set(key,out);else state.playerStatsCache.delete(key);return out
 }
