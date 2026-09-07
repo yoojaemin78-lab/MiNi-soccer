@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1017">
-<title>SOCCER MATCH V41</title>
+<title>SOCCER MATCH V42</title>
 <style>
 :root{--bg:#090d12;--panel:#131923;--panel2:#1b2330;--line:#293546;--line2:#202a37;--text:#f5f7fb;--muted:#96a2b2;--muted2:#758191;--green:#5ed28a;--red:#ff7e87;--yellow:#ffd166;--blue:#7cb8ff}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:radial-gradient(circle at 50% -15%,#233247 0,#101721 34%,#090d12 74%)}
@@ -384,7 +384,7 @@ body{background:linear-gradient(180deg,#0b1016 0,#090d12 58%,#080c11 100%);color
 <body>
 <div class="app" id="mainApp">
 <header>
-  <div><h1>SOCCER MATCH <span class="badge">V41</span></h1><div class="sub">Flashscore 직접 데이터 · 경기/순위/통계/H2H/라인업/결장·부상/배당/선수정보 · 심판만 별도</div></div>
+  <div><h1>SOCCER MATCH <span class="badge">V42</span></h1><div class="sub">Flashscore 직접 데이터 · 경기/순위/통계/H2H/라인업/결장·부상/배당/선수정보 · 심판만 별도</div></div>
   <div class="source-pill">Flashscore · 심판만 별도</div>
 </header>
 <section class="card">
@@ -1787,18 +1787,15 @@ function renderDetail(d){
  $('#pane-weather').innerHTML=`<div class="dcard"><div class="dtitle">경기장 날씨</div>${weatherHtml(d.weather)}<div class="source-note">ESPN 날씨 우선. 과거 경기는 Open-Meteo 과거날씨, 미래 경기는 예보를 사용합니다.</div></div>`;
 }
 /* ========================================================================== */
-/* V41 · Flashscore 단일 데이터 경로 + GitHub Pages 프록시 전송             */
+/* V42 · Flashscore 단일 데이터 경로 + upstream 헤더 프록시 전송            */
 /* ========================================================================== */
 const FS39_SIGN='SW9D1eZo';
 const FS39_FEED_HOSTS=[
- 'https://2.flashscore.ninja/2/x/feed',
  'https://local-global.flashscore.ninja/2/x/feed',
- 'https://www.flashscore.com/x/feed',
- 'https://d.flashscore.com/x/feed'
+ 'https://2.flashscore.ninja/2/x/feed'
 ];
 const FS39_GQL='https://2.ds.lsapp.eu/pq_graphql';
-const FS41_CORS_PROXY='https://corsproxy.io/?url=';
-const FS41_ALLORIGINS='https://api.allorigins.win/raw?url=';
+const FS42_CORS_PROXY='https://corsproxy.io/';
 state.fs39TextCache=state.fs39TextCache||new Map();
 state.fs39JsonCache=state.fs39JsonCache||new Map();
 state.fs39DayCache=state.fs39DayCache||new Map();
@@ -1807,31 +1804,38 @@ state.fs39Standings=state.fs39Standings||new Map();
 state.fs39Detail=state.fs39Detail||new Map();
 
 function fs39Timeout(ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return{c,t}}
-function fs41LooksBlockedText(v){const t=String(v||'').slice(0,1200).toLowerCase();return !t||t.includes('access denied')||t.includes('forbidden')||t.includes('cloudflare ray id')||t.includes('<!doctype html')&&t.includes('captcha')}
-async function fs41FetchAttempt(target,{json=false,timeout=5500,sign=false,fresh=false}={}){
+function fs42LooksBlockedText(v){const t=String(v||'').slice(0,1600).toLowerCase();return !t||t.includes('access denied')||t.includes('forbidden')||t.includes('cloudflare ray id')||t.includes('captcha')||t.includes('proxy error')}
+function fs42ProxyUrl(url,{sign=false}={}){
+ const q=new URLSearchParams();
+ q.set('url',url);
+ const upstream={
+  'Accept':'*/*',
+  'Accept-Language':'en-US,en;q=0.9',
+  'Referer':'https://www.flashscoreusa.com/',
+  'Origin':'https://www.flashscoreusa.com'
+ };
+ if(sign)upstream['x-fsign']=FS39_SIGN;
+ for(const[k,v]of Object.entries(upstream))q.append('reqHeaders',`${k}:${v}`);
+ return `${FS42_CORS_PROXY}?${q.toString()}`;
+}
+async function fs42FetchAttempt(target,{json=false,timeout=5200,fresh=false}={}){
  const{c,t}=fs39Timeout(timeout);try{
-  const headers={Accept:json?'application/json, text/plain, */*':'text/plain, */*','Accept-Language':'en-US,en;q=0.9'};
-  if(sign)headers['x-fsign']=FS39_SIGN;
-  const r=await fetch(target,{headers,signal:c.signal,cache:fresh?'no-store':'default'});
+  const r=await fetch(target,{signal:c.signal,cache:fresh?'no-store':'default'});
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  if(json){const tx=await r.text();if(fs41LooksBlockedText(tx))throw new Error('blocked');try{return JSON.parse(tx)}catch(e){throw new Error('invalid json')}}
-  const tx=await r.text();if(fs41LooksBlockedText(tx))throw new Error('blocked');return tx
+  const tx=await r.text();
+  if(fs42LooksBlockedText(tx))throw new Error('blocked');
+  if(json){try{return JSON.parse(tx)}catch(e){throw new Error('invalid json')}}
+  return tx
  }finally{clearTimeout(t)}
 }
-async function fs39FetchOne(url,{json=false,timeout=5500,sign=false,fresh=false}={}){
+async function fs39FetchOne(url,{json=false,timeout=5200,sign=false,fresh=false}={}){
  const cache=json?state.fs39JsonCache:state.fs39TextCache;
  if(!fresh&&cache.has(url)){const v=cache.get(url);return v&&typeof v.then==='function'?await v:v}
  const task=(async()=>{
-  const onGithub=/\.github\.io$/i.test(location.hostname||'');
-  const proxy=`${FS41_CORS_PROXY}${encodeURIComponent(url)}`;
-  const allorigins=`${FS41_ALLORIGINS}${encodeURIComponent(url)}`;
-  const attempts=onGithub?[proxy,url,allorigins]:[url,proxy,allorigins];
-  let last=null;
-  for(const target of attempts){
-   try{return await fs41FetchAttempt(target,{json,timeout:target===url?Math.min(timeout,2200):timeout,sign:target===allorigins?false:sign,fresh})}
-   catch(e){last=e}
-  }
-  throw last||new Error('network failed')
+  const proxy=fs42ProxyUrl(url,{sign});
+  // GitHub Pages에서는 브라우저가 Flashscore 원본에 직접 필요한 헤더를 넣을 수 없으므로
+  // upstream 헤더를 프록시에 명시해 한 경로로 요청한다.
+  return await fs42FetchAttempt(proxy,{json,timeout,fresh});
  })();
  if(!fresh)cache.set(url,task);
  try{const v=await task;if(!fresh)cache.set(url,v);return v}catch(e){if(!fresh)cache.delete(url);throw e}
@@ -1850,7 +1854,7 @@ function fs39LeagueCode(meta={}){const text=`${meta.ZA||''} ${meta.ZL||''}`.toLo
 function fs39LeagueName(meta={}){const z=String(meta.ZA||'').trim();if(!z)return'기타 경기';const p=z.indexOf(':');return p>=0?z.slice(p+1).trim()||z:z}
 function fs39Status(f={}){const ab=String(f.AB||''),ac=String(f.AC||'');let stateType=ab==='2'?'in':ab==='3'?'post':'pre',short='Scheduled';if(stateType==='in')short=ac==='11'?'HT':'LIVE';else if(stateType==='post')short=ac==='36'?'AET':ac==='37'?'PEN':ac==='42'?'Awarded':'FT';else if(ac==='4')short='Postponed';else if(ac==='5')short='Cancelled';return{type:{state:stateType,shortDetail:short,detail:short,completed:stateType==='post'}}}
 function fs39MakeEvent(f,meta){const homeName=f.AE||'-',awayName=f.AF||'-',homeId=String(f.JA||f.AU||''),awayId=String(f.JB||f.AV||''),hs=f.AG??'',as=f.AH??'',ts=Number(f.AD),date=Number.isFinite(ts)?new Date(ts*1000).toISOString():new Date().toISOString(),league=fs39LeagueCode(meta)||'all';return{id:String(f.AA||''),date,name:`${homeName} vs ${awayName}`,shortName:`${homeName} - ${awayName}`,league:{name:fs39LeagueName(meta),slug:league},season:{year:seasonStartYearFromDate(date)||new Date(date).getFullYear()},status:fs39Status(f),fs39:true,fsRaw:f,fsMeta:{...meta,leagueCode:league,leagueName:fs39LeagueName(meta)},competitions:[{competitors:[{homeAway:'home',score:hs,team:{id:homeId,displayName:homeName,name:homeName,logo:fs39Logo(f.OA)}},{homeAway:'away',score:as,team:{id:awayId,displayName:awayName,name:awayName,logo:fs39Logo(f.OB)}}]}]}}
-async function fs39LoadDay(date,{fresh=false}={}){const key=String(date);if(!fresh&&state.fs39DayCache.has(key))return state.fs39DayCache.get(key);const off=fs39DateOffset(date);let raw;try{raw=await fs39Feed(`f_1_${off}_9_en_1`,{fresh,timeout:5200})}catch(e){raw=await fs39Feed(`f_1_${off}_3_en_1`,{fresh,timeout:5200})}let meta={},events=[];for(const row of String(raw||'').split('~')){const f=fs39Fields(row);if(f.ZA){meta=f;const code=fs39LeagueCode(meta);if(code&&f.ZEE&&f.ZC)state.fs39LeagueMeta.set(code,{...meta,leagueCode:code,leagueName:fs39LeagueName(meta),tournamentId:String(f.ZEE),stageId:String(f.ZC)});continue}if(f.AA){const ev=fs39MakeEvent(f,meta);if(ev.id)events.push(ev)}}const out={events,raw};state.fs39DayCache.set(key,out);return out}
+async function fs39LoadDay(date,{fresh=false}={}){const key=String(date);if(!fresh&&state.fs39DayCache.has(key))return state.fs39DayCache.get(key);const off=fs39DateOffset(date);let raw;try{raw=await fs39Feed(`f_1_${off}_9_en-us_1`,{fresh,timeout:5200})}catch(e){raw=await fs39Feed(`f_1_${off}_0_en-us_1`,{fresh,timeout:5200})}let meta={},events=[];for(const row of String(raw||'').split('~')){const f=fs39Fields(row);if(f.ZA){meta=f;const code=fs39LeagueCode(meta);if(code&&f.ZEE&&f.ZC)state.fs39LeagueMeta.set(code,{...meta,leagueCode:code,leagueName:fs39LeagueName(meta),tournamentId:String(f.ZEE),stageId:String(f.ZC)});continue}if(f.AA){const ev=fs39MakeEvent(f,meta);if(ev.id)events.push(ev)}}const out={events,raw};state.fs39DayCache.set(key,out);return out}
 
 function leagueLabel(ev){return ev?.fsMeta?.leagueName||ev?.league?.name||'기타 경기'}
 function inferLeague(ev,selected='all'){if(selected&&selected!=='all')return selected;if(ev?.fsMeta?.leagueCode)return ev.fsMeta.leagueCode;return ev?.league?.slug||'all'}
